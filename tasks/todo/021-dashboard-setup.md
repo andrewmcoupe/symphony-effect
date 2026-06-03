@@ -1,14 +1,14 @@
 # 021: Dashboard Setup
 
 ## Summary
-Set up the React dashboard with Vite, TanStack Query, TanStack Router, Tailwind, and shadcn/ui.
+Set up the React dashboard with Vite 8, TanStack Query, TanStack Router, Tailwind CSS 4, and shadcn/ui.
 
 ## Dependencies
 - 001-project-setup
 
 ## Acceptance Criteria
 
-- [ ] Vite configured for React + TypeScript
+- [ ] Vite 8 configured for React + TypeScript
 - [ ] TanStack Query setup:
   - QueryClient configured
   - QueryClientProvider at root
@@ -17,10 +17,10 @@ Set up the React dashboard with Vite, TanStack Query, TanStack Router, Tailwind,
   - File-based routing configured
   - Root layout with outlet
   - Type-safe route definitions
-- [ ] Tailwind CSS configured:
-  - `tailwind.config.js`
-  - `postcss.config.js`
-  - Base styles in `index.css`
+- [ ] Tailwind CSS 4 configured:
+  - `@tailwindcss/vite` plugin added to `vite.config.ts` (no PostCSS/Autoprefixer needed)
+  - CSS-first config: `@import "tailwindcss"` in `index.css`
+  - Theme customization via `@theme` in CSS (no `tailwind.config.js`)
 - [ ] shadcn/ui initialized:
   - `components.json` configured
   - Base components installed (button, card, badge, table)
@@ -39,22 +39,21 @@ Set up the React dashboard with Vite, TanStack Query, TanStack Router, Tailwind,
 - Use `@tanstack/react-router` with file-based routing
 - Configure Vite proxy in `vite.config.ts`
 - shadcn/ui uses `class-variance-authority` for variants
-- Tailwind config should extend for shadcn theming
+- Tailwind 4 uses CSS-first config: define shadcn theme tokens with `@theme` / CSS variables in `index.css` rather than a JS config
+- Ensure shadcn/ui init targets Tailwind 4 (no `tailwind.config.js`); use the CSS-variables theming mode in `components.json`
 
 ## Files to Create/Modify
 
 ```
 packages/dashboard/
 ├── package.json
-├── vite.config.ts
+├── vite.config.ts         # includes @tailwindcss/vite plugin
 ├── tsconfig.json
-├── tailwind.config.js
-├── postcss.config.js
-├── components.json        # shadcn config
+├── components.json        # shadcn config (CSS-variables theming)
 ├── index.html
 └── src/
     ├── main.tsx
-    ├── index.css          # Tailwind imports
+    ├── index.css          # @import "tailwindcss" + @theme tokens
     ├── lib/
     │   └── utils.ts       # shadcn cn() utility
     ├── components/
@@ -72,8 +71,17 @@ packages/dashboard/
 ## Vite Config
 
 ```typescript
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
+import { tanstackRouter } from '@tanstack/router-plugin/vite'
+
 export default defineConfig({
-  plugins: [react(), TanStackRouterVite()],
+  plugins: [
+    tanstackRouter({ target: 'react', autoCodeSplitting: true }),
+    react(),
+    tailwindcss(),
+  ],
   server: {
     proxy: {
       '/api': {
@@ -83,6 +91,18 @@ export default defineConfig({
     },
   },
 })
+```
+
+## index.css (Tailwind 4)
+
+```css
+@import "tailwindcss";
+
+@theme {
+  /* shadcn/ui design tokens as CSS variables, e.g. */
+  --color-background: oklch(1 0 0);
+  --color-foreground: oklch(0.145 0 0);
+}
 ```
 
 ## TanStack Query Setup
