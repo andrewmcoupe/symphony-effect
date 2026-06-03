@@ -1,4 +1,20 @@
 export {
+  makeOrchestrator,
+  makeOrchestratorLive,
+  Orchestrator,
+  OrchestratorConfig,
+  OrchestratorLive,
+  type Orchestrator as OrchestratorService,
+  type OrchestratorConfigValue,
+  type PollTickResult,
+} from "./orchestrator.js";
+export {
+  makeReconciler,
+  Reconciler,
+  ReconcilerLive,
+  type Reconciler as ReconcilerService,
+} from "./reconciliation.js";
+export {
   ConcurrencyController,
   ConcurrencyControllerConfig,
   ConcurrencyControllerLive,

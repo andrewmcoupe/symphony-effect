@@ -16,9 +16,9 @@ Implement the main polling loop that drives the orchestrator.
 
 ## Acceptance Criteria
 
-- [ ] `Orchestrator` Effect service defined
-- [ ] `start()` method that begins the polling loop
-- [ ] Polling tick sequence:
+- [x] `Orchestrator` Effect service defined
+- [x] `start()` method that begins the polling loop
+- [x] Polling tick sequence:
   1. Re-read and validate WORKFLOW.md (reload config)
   2. Run reconciliation (stall detection + state refresh)
   3. Process due retry entries
@@ -32,14 +32,14 @@ Implement the main polling loop that drives the orchestrator.
   7. Update lastPollAt timestamp
   8. Sleep for `polling.interval_ms`
   9. Repeat
-- [ ] Config validation failure: skip dispatch, keep reconciliation, emit error
-- [ ] Tracker fetch failure: skip tick, retry next poll
-- [ ] Worker fork and completion handling:
+- [x] Config validation failure: skip dispatch, keep reconciliation, emit error
+- [x] Tracker fetch failure: skip tick, retry next poll
+- [x] Worker fork and completion handling:
   - On success: schedule continuation retry (1000ms)
   - On failure: schedule backoff retry
   - On max turns: release issue
-- [ ] `OrchestratorLive` layer composing all dependencies
-- [ ] Integration tests with mocked services
+- [x] `OrchestratorLive` layer composing all dependencies
+- [x] Integration tests with mocked services
 
 ## Technical Notes
 
