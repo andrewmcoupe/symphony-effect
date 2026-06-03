@@ -1,0 +1,35 @@
+{
+  "name": "symphony",
+  "version": "0.0.0",
+  "private": true,
+  "bin": {
+    "symphony": "./dist/index.js"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@effect/cli": "^0.74.0",
+    "@effect/platform": "^0.96.0",
+    "@effect/platform-node": "^0.99.0",
+    "@effect/schema": "^0.75.5",
+    "effect": "^3.19.0",
+    "gray-matter": "^4.0.3",
+    "hono": "^4.10.0",
+    "liquidjs": "^10.21.0",
+    "yaml": "^2.8.0"
+  },
+  "devDependencies": {
+    "@effect/vitest": "^0.27.0",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}
