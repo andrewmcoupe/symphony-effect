@@ -9,7 +9,7 @@ Define the orchestrator state model using Effect Ref and tagged unions.
 
 ## Acceptance Criteria
 
-- [ ] `IssueClaimState` tagged union:
+- [x] `IssueClaimState` tagged union:
   ```typescript
   type IssueClaimState =
     | { _tag: "Unclaimed" }
@@ -17,7 +17,7 @@ Define the orchestrator state model using Effect Ref and tagged unions.
     | { _tag: "Running"; fiber: Fiber.RuntimeFiber<void, WorkerError>; startedAt: number; turnCount: number; lastActivityAt: number }
     | { _tag: "RetryQueued"; attempt: number; dueAt: number; error: string }
   ```
-- [ ] `RetryEntry` type:
+- [x] `RetryEntry` type:
   ```typescript
   interface RetryEntry {
     issueId: string
@@ -27,7 +27,7 @@ Define the orchestrator state model using Effect Ref and tagged unions.
     error: string
   }
   ```
-- [ ] `TokenTotals` type:
+- [x] `TokenTotals` type:
   ```typescript
   interface TokenTotals {
     inputTokens: number
@@ -36,7 +36,7 @@ Define the orchestrator state model using Effect Ref and tagged unions.
     runtimeSeconds: number
   }
   ```
-- [ ] `OrchestratorState` type:
+- [x] `OrchestratorState` type:
   ```typescript
   interface OrchestratorState {
     running: Map<string, RunningIssue>
@@ -45,16 +45,16 @@ Define the orchestrator state model using Effect Ref and tagged unions.
     lastPollAt: number | null
   }
   ```
-- [ ] `OrchestratorStateRef` service wrapping `Ref<OrchestratorState>`
-- [ ] State mutation helpers:
+- [x] `OrchestratorStateRef` service wrapping `Ref<OrchestratorState>`
+- [x] State mutation helpers:
   - `claimIssue(issueId)`
   - `markRunning(issueId, fiber)`
   - `markRetryQueued(issueId, attempt, error)`
   - `releaseIssue(issueId)`
   - `updateActivity(issueId)`
   - `incrementTokens(usage)`
-- [ ] `getSnapshot()` method for observability
-- [ ] Unit tests for state transitions
+- [x] `getSnapshot()` method for observability
+- [x] Unit tests for state transitions
 
 ## Technical Notes
 
