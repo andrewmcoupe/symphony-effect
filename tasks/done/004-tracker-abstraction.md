@@ -8,7 +8,7 @@ Define the tracker interface and issue domain model that abstracts over issue tr
 
 ## Acceptance Criteria
 
-- [ ] `Issue` domain model defined:
+- [x] `Issue` domain model defined:
   ```typescript
   interface Issue {
     id: string
@@ -25,7 +25,7 @@ Define the tracker interface and issue domain model that abstracts over issue tr
     updatedAt: Date
   }
   ```
-- [ ] `BlockerRef` type defined:
+- [x] `BlockerRef` type defined:
   ```typescript
   interface BlockerRef {
     id: string
@@ -33,7 +33,7 @@ Define the tracker interface and issue domain model that abstracts over issue tr
     state: string
   }
   ```
-- [ ] `TrackerClient` service interface:
+- [x] `TrackerClient` service interface:
   ```typescript
   interface TrackerClient {
     fetchCandidateIssues(): Effect<Issue[], TrackerError>
@@ -41,14 +41,14 @@ Define the tracker interface and issue domain model that abstracts over issue tr
     fetchIssueStatesByIds(ids: string[]): Effect<Map<string, string>, TrackerError>
   }
   ```
-- [ ] `TrackerError` union type:
+- [x] `TrackerError` union type:
   - `TrackerError.UnsupportedKind`
   - `TrackerError.MissingApiKey`
   - `TrackerError.MissingProjectSlug`
   - `TrackerError.RequestFailed`
   - `TrackerError.ApiError`
   - `TrackerError.UnknownPayload`
-- [ ] Effect Schema for `Issue` (for API responses)
+- [x] Effect Schema for `Issue` (for API responses)
 
 ## Technical Notes
 
