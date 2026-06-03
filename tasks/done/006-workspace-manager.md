@@ -9,29 +9,29 @@ Implement workspace lifecycle management: directory creation, path sanitization,
 
 ## Acceptance Criteria
 
-- [ ] `WorkspaceManager` Effect service defined
-- [ ] `sanitizeIdentifier(identifier: string)` function:
+- [x] `WorkspaceManager` Effect service defined
+- [x] `sanitizeIdentifier(identifier: string)` function:
   - Replace non-`[A-Za-z0-9._-]` characters with `_`
   - Handle edge cases (empty string, all special chars)
-- [ ] `getWorkspacePath(identifier: string)` method:
+- [x] `getWorkspacePath(identifier: string)` method:
   - Returns `{workspace.root}/{sanitized_identifier}/`
   - Validates path is under workspace root (prefix check)
-- [ ] `ensureWorkspace(identifier: string)` method:
+- [x] `ensureWorkspace(identifier: string)` method:
   - Creates directory if missing
   - Returns `{ path: string, createdNow: boolean }`
   - Idempotent (safe to call multiple times)
-- [ ] `removeWorkspace(identifier: string)` method:
+- [x] `removeWorkspace(identifier: string)` method:
   - Removes workspace directory recursively
   - Safe if directory doesn't exist
-- [ ] Safety invariants:
+- [x] Safety invariants:
   - Path must be under configured root (prevent traversal)
   - Sanitization prevents `..` and `/` injection
-- [ ] `WorkspaceError` type:
+- [x] `WorkspaceError` type:
   - `WorkspaceError.CreationFailed`
   - `WorkspaceError.PathViolation`
   - `WorkspaceError.RemovalFailed`
-- [ ] `WorkspaceManagerLive` layer using `@effect/platform` FileSystem
-- [ ] Unit tests:
+- [x] `WorkspaceManagerLive` layer using `@effect/platform` FileSystem
+- [x] Unit tests:
   - Path sanitization cases
   - Directory creation (new and existing)
   - Path traversal rejection
