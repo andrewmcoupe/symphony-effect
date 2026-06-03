@@ -83,6 +83,31 @@ describe("OrchestratorStateRef", () => {
     expect(snapshot.after.running).toHaveLength(1);
   });
 
+  it("records completed turns and latest activity", async () => {
+    const snapshot = await runWithState(
+      Effect.gen(function* () {
+        const state = yield* OrchestratorStateRef;
+        yield* state.markRunning("issue-123", makeFiber(), "ABC-123", "Todo");
+        const before = yield* state.getSnapshot();
+        yield* Effect.sleep("5 millis");
+        yield* state.recordTurn("issue-123", "In Progress");
+        yield* state.recordTurn("missing");
+        const after = yield* state.getSnapshot();
+
+        return { before, after };
+      }),
+    );
+
+    expect(snapshot.after.running[0]).toMatchObject({
+      issueId: "issue-123",
+      turnCount: 1,
+      trackerState: "In Progress",
+    });
+    expect(snapshot.after.running[0]?.lastActivityAt).toBeGreaterThanOrEqual(
+      snapshot.before.running[0]?.lastActivityAt ?? 0,
+    );
+  });
+
   it("queues retries, removes running state, and sorts by due date", async () => {
     const snapshot = await runWithState(
       Effect.gen(function* () {

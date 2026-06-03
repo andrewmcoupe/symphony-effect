@@ -15,8 +15,8 @@ Implement the worker that executes agent turns for a single issue.
 
 ## Acceptance Criteria
 
-- [ ] `Worker` module with `runWorker(issue: Issue, attempt: number | null)` function
-- [ ] Worker execution flow:
+- [x] `Worker` module with `runWorker(issue: Issue, attempt: number | null)` function
+- [x] Worker execution flow:
   1. Ensure workspace exists (create if needed)
   2. Run `after_create` hook if newly created (failure is fatal)
   3. Run `before_run` hook (failure aborts attempt)
@@ -31,7 +31,7 @@ Implement the worker that executes agent turns for a single issue.
      - Else: exit loop
   5. Run `after_run` hook (failure logged, ignored)
   6. Return worker result
-- [ ] `WorkerResult` type:
+- [x] `WorkerResult` type:
   ```typescript
   type WorkerResult =
     | { _tag: "Completed"; turnCount: number }
@@ -39,13 +39,13 @@ Implement the worker that executes agent turns for a single issue.
     | { _tag: "IssueNoLongerActive"; turnCount: number }
     | { _tag: "Failed"; error: WorkerError; turnCount: number }
   ```
-- [ ] `WorkerError` type:
+- [x] `WorkerError` type:
   - `WorkerError.WorkspaceCreationFailed`
   - `WorkerError.HookFailed`
   - `WorkerError.AgentFailed`
   - `WorkerError.StateCheckFailed`
-- [ ] Proper fiber cancellation handling (cleanup on interrupt)
-- [ ] Integration tests with mocked dependencies
+- [x] Proper fiber cancellation handling (cleanup on interrupt)
+- [x] Integration tests with mocked dependencies
 
 ## Technical Notes
 

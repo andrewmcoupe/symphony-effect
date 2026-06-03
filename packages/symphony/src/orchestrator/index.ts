@@ -29,3 +29,4 @@ export {
   type RetrySchedulerConfigValue,
 } from "./retry.js";
 export * from "./state/index.js";
+export * from "./worker.js";

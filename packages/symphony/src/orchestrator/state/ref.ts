@@ -7,6 +7,7 @@ import {
   markRetryQueuedMutation,
   markRunningMutation,
   recordPollMutation,
+  recordTurnMutation,
   releaseIssueMutation,
   resolveIssueIdentifier,
   takeDueRetriesMutation,
@@ -38,6 +39,7 @@ export interface OrchestratorStateRef {
   readonly takeDueRetries: (now?: number) => Effect.Effect<ReadonlyArray<RetryEntry>>;
   readonly releaseIssue: (issueId: string) => Effect.Effect<void>;
   readonly updateActivity: (issueId: string) => Effect.Effect<void>;
+  readonly recordTurn: (issueId: string, trackerState?: string) => Effect.Effect<void>;
   readonly incrementTokens: (usage: TokenUsageDelta) => Effect.Effect<void>;
   readonly recordPoll: (lastPollAt?: number) => Effect.Effect<void>;
   readonly getState: () => Effect.Effect<OrchestratorState>;
@@ -80,6 +82,7 @@ export const makeOrchestratorStateRef = (
   takeDueRetries: (now) => Ref.modify(ref, takeDueRetriesMutation(now)),
   releaseIssue: (issueId) => Ref.update(ref, releaseIssueMutation(issueId)),
   updateActivity: (issueId) => Ref.update(ref, updateActivityMutation(issueId)),
+  recordTurn: (issueId, trackerState) => Ref.update(ref, recordTurnMutation(issueId, trackerState)),
   incrementTokens: (usage) => Ref.update(ref, incrementTokensMutation(usage)),
   recordPoll: (lastPollAt) => Ref.update(ref, recordPollMutation(lastPollAt)),
   getState: () =>

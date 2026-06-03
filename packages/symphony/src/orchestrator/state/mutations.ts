@@ -146,6 +146,31 @@ export const updateActivityMutation =
     return next;
   };
 
+export const recordTurnMutation =
+  (issueId: string, trackerState?: string, now = Date.now()) =>
+  (state: OrchestratorState): OrchestratorState => {
+    const running = state.running.get(issueId);
+    if (running === undefined) return state;
+
+    const next = copyState(state);
+    const updated: RunningIssue = {
+      ...running,
+      turnCount: running.turnCount + 1,
+      lastActivityAt: now,
+      ...(trackerState === undefined ? {} : { trackerState }),
+    };
+    next.running.set(issueId, updated);
+    next.claims?.set(issueId, {
+      _tag: "Running",
+      fiber: updated.fiber,
+      startedAt: updated.startedAt,
+      turnCount: updated.turnCount,
+      lastActivityAt: updated.lastActivityAt,
+      ...(updated.trackerState === undefined ? {} : { trackerState: updated.trackerState }),
+    });
+    return next;
+  };
+
 export const incrementTokensMutation =
   (usage: TokenUsageDelta) =>
   (state: OrchestratorState): OrchestratorState => {
