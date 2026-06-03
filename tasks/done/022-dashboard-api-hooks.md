@@ -9,25 +9,25 @@ Create TanStack Query hooks for fetching orchestrator state.
 
 ## Acceptance Criteria
 
-- [ ] API client module with typed fetch functions:
+- [x] API client module with typed fetch functions:
   - `fetchState(): Promise<StateSnapshot>`
   - `fetchIssue(identifier: string): Promise<IssueDetail>`
   - `triggerRefresh(): Promise<void>`
-- [ ] TanStack Query hooks:
+- [x] TanStack Query hooks:
   - `useOrchestratorState()` - polls every 5 seconds
   - `useIssueDetail(identifier: string)` - polls every 5 seconds
   - `useRefreshMutation()` - triggers manual refresh
-- [ ] TypeScript types matching API responses:
+- [x] TypeScript types matching API responses:
   - `StateSnapshot`
   - `IssueDetail`
   - `RunningIssue`
   - `RetryEntry`
   - `TokenTotals`
-- [ ] Error handling:
+- [x] Error handling:
   - Network errors surface in query state
   - Loading states available
-- [ ] Optimistic updates for refresh mutation
-- [ ] Unit tests for hooks (using msw or similar)
+- [x] Optimistic updates for refresh mutation
+- [x] Unit tests for hooks (using msw or similar)
 
 ## Technical Notes
 
