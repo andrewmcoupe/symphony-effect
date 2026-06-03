@@ -9,6 +9,7 @@ import { ConcurrencyController } from "./concurrency.js";
 import { makeDispatchDecider } from "./dispatch.js";
 import { makeReconcilerConfigFromLoadedConfig, Reconciler } from "./reconciliation.js";
 import { makeRetryScheduler } from "./retry.js";
+import { OrchestratorRefresh } from "./refresh.js";
 import { OrchestratorStateRef, type RetryEntry } from "./state/index.js";
 import type { WorkerError as StateWorkerError } from "./state/types.js";
 import {
@@ -62,6 +63,7 @@ interface MakeOrchestratorOptions extends OrchestratorConfigValue {
   readonly stateRef: OrchestratorStateRef;
   readonly tracker: TrackerClient;
   readonly workspaceManager: WorkspaceManager;
+  readonly refresh?: OrchestratorRefresh;
   readonly workerFactory?: (options: WorkerFactoryOptions) => Worker;
 }
 
@@ -131,6 +133,7 @@ export const makeOrchestrator = ({
   stateRef,
   tracker,
   workflowPath,
+  refresh,
   workerFactory = defaultWorkerFactory,
   workspaceManager,
 }: MakeOrchestratorOptions): Orchestrator => {
@@ -276,6 +279,10 @@ export const makeOrchestrator = ({
 
       const loaded = loadedResult.right;
       const intervalMs = loaded.config.polling.interval_ms;
+      yield* stateRef.recordRuntimeConfig({
+        pollingIntervalMs: intervalMs,
+        maxConcurrentAgents: loaded.config.agent.max_concurrent_agents,
+      });
       const retry = makeRetry(loaded);
       const dueRetries = yield* retry.getDueRetries();
       const candidatesResult = yield* tracker.fetchCandidateIssues().pipe(Effect.either);
@@ -296,8 +303,11 @@ export const makeOrchestrator = ({
     });
 
   const start = (): Effect.Effect<void> => {
+    const sleepUntilNextTick = (intervalMs: number): Effect.Effect<void> =>
+      refresh?.waitForRefreshOrTimeout(intervalMs).pipe(Effect.asVoid) ?? Effect.sleep(intervalMs);
+
     const loop: Effect.Effect<void> = pollOnce().pipe(
-      Effect.flatMap((result) => Effect.sleep(result.intervalMs)),
+      Effect.flatMap((result) => sleepUntilNextTick(result.intervalMs)),
       Effect.zipRight(Effect.suspend(() => loop)),
     );
     return loop;
@@ -319,6 +329,7 @@ export const OrchestratorLive: Layer.Layer<
   | Reconciler
   | TrackerClient
   | WorkspaceManager
+  | OrchestratorRefresh
 > = Layer.effect(
   Orchestrator,
   Effect.gen(function* () {
@@ -332,6 +343,7 @@ export const OrchestratorLive: Layer.Layer<
     const stateRef = yield* OrchestratorStateRef;
     const tracker = yield* TrackerClient;
     const workspaceManager = yield* WorkspaceManagerTag;
+    const refresh = yield* OrchestratorRefresh;
 
     return makeOrchestrator({
       ...config,
@@ -344,6 +356,7 @@ export const OrchestratorLive: Layer.Layer<
       stateRef,
       tracker,
       workspaceManager,
+      refresh,
     });
   }),
 );
@@ -362,4 +375,5 @@ export const makeOrchestratorLive = (
   | Reconciler
   | TrackerClient
   | WorkspaceManager
+  | OrchestratorRefresh
 > => OrchestratorLive.pipe(Layer.provide(Layer.succeed(OrchestratorConfig, config)));

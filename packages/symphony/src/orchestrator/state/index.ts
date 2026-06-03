@@ -7,6 +7,7 @@ export {
   markRetryQueuedMutation,
   markRunningMutation,
   recordPollMutation,
+  recordRuntimeConfigMutation,
   recordTurnMutation,
   releaseIssueMutation,
   takeDueRetriesMutation,
@@ -28,6 +29,7 @@ export type {
   RetryEntry,
   RunningIssue,
   RunningIssueSnapshot,
+  RuntimeConfigSnapshot,
   TokenTotals,
   TokenUsageDelta,
 } from "./types.js";

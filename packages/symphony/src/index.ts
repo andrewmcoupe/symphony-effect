@@ -9,4 +9,5 @@
 export const VERSION = "0.0.0";
 
 export * from "./agent/index.js";
+export * from "./observability/index.js";
 export * from "./orchestrator/index.js";

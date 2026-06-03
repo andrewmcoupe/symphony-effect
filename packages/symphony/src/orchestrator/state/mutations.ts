@@ -4,6 +4,7 @@ import type {
   OrchestratorSnapshot,
   OrchestratorState,
   RetryEntry,
+  RuntimeConfigSnapshot,
   RunningIssue,
   RunningIssueSnapshot,
   TokenTotals,
@@ -17,10 +18,16 @@ export const initialTokenTotals: TokenTotals = {
   runtimeSeconds: 0,
 };
 
+export const initialRuntimeConfig: RuntimeConfigSnapshot = {
+  pollingIntervalMs: 30_000,
+  maxConcurrentAgents: 10,
+};
+
 export const initialOrchestratorState: OrchestratorState = {
   running: new Map(),
   retryQueue: [],
   tokenTotals: initialTokenTotals,
+  runtimeConfig: initialRuntimeConfig,
   lastPollAt: null,
   claims: new Map(),
   identifiers: new Map(),
@@ -30,6 +37,7 @@ const copyState = (state: OrchestratorState): OrchestratorState => ({
   running: new Map(state.running),
   retryQueue: [...state.retryQueue],
   tokenTotals: { ...state.tokenTotals },
+  runtimeConfig: { ...state.runtimeConfig },
   lastPollAt: state.lastPollAt,
   claims: new Map(state.claims ?? []),
   identifiers: new Map(state.identifiers ?? []),
@@ -218,6 +226,13 @@ export const recordPollMutation =
   (lastPollAt = Date.now()) =>
   (state: OrchestratorState): OrchestratorState => ({ ...state, lastPollAt });
 
+export const recordRuntimeConfigMutation =
+  (runtimeConfig: RuntimeConfigSnapshot) =>
+  (state: OrchestratorState): OrchestratorState => ({
+    ...state,
+    runtimeConfig: { ...runtimeConfig },
+  });
+
 const toClaimSnapshot = (
   issueId: string,
   claim: IssueClaimState,
@@ -271,6 +286,7 @@ export const getSnapshot = (state: OrchestratorState, now = Date.now()): Orchest
   running: Array.from(state.running.values()).map(toRunningSnapshot(now)),
   retryQueue: [...state.retryQueue],
   tokenTotals: { ...state.tokenTotals },
+  runtimeConfig: { ...state.runtimeConfig },
   lastPollAt: state.lastPollAt,
   claims: Array.from((state.claims ?? new Map()).entries()).map(([issueId, claim]) =>
     toClaimSnapshot(issueId, claim, state.identifiers?.get(issueId)),

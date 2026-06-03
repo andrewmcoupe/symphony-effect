@@ -1,0 +1,188 @@
+import { Effect, Fiber } from "effect";
+import { describe, expect, it } from "vitest";
+import {
+  HttpServer,
+  HttpServerLive,
+  OrchestratorRefresh,
+  OrchestratorRefreshLive,
+  OrchestratorStateRef,
+  OrchestratorStateRefLive,
+  type HttpServerService,
+  type OrchestratorRefreshService,
+  type OrchestratorStateRefService,
+} from "../index.js";
+import type { WorkerError } from "../orchestrator/state/types.js";
+
+const makeFiber = (): Fiber.RuntimeFiber<void, WorkerError> =>
+  Effect.runFork(Effect.void) as Fiber.RuntimeFiber<void, WorkerError>;
+
+const runWithServer = <A, E>(
+  effect: Effect.Effect<
+    A,
+    E,
+    HttpServerService | OrchestratorRefreshService | OrchestratorStateRefService
+  >,
+) =>
+  Effect.runPromise(
+    effect.pipe(
+      Effect.provide(HttpServerLive),
+      Effect.provide(OrchestratorRefreshLive),
+      Effect.provide(OrchestratorStateRefLive),
+    ),
+  );
+
+describe("HttpServer", () => {
+  it("serves the orchestrator state snapshot with CORS and JSON content type", async () => {
+    const response = await runWithServer(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const server = yield* HttpServer;
+          const state = yield* OrchestratorStateRef;
+
+          yield* state.recordRuntimeConfig({
+            pollingIntervalMs: 250,
+            maxConcurrentAgents: 2,
+          });
+          yield* state.markRunning("issue-1", makeFiber(), "ABC-1", "Todo");
+          yield* state.recordTurn("issue-1", "In Progress");
+          yield* state.markRetryQueued("issue-2", 3, "rate limited", {
+            identifier: "ABC-2",
+            dueAt: 1_000,
+          });
+          yield* state.incrementTokens({
+            inputTokens: 10,
+            outputTokens: 5,
+            runtimeSeconds: 7,
+          });
+          yield* state.recordPoll(2_000);
+
+          const binding = yield* server.start({ port: 0 });
+          const result = yield* Effect.promise(() =>
+            fetch(`http://${binding.host}:${binding.port}/api/v1/state`, {
+              headers: { Origin: "http://localhost:5173" },
+            }),
+          );
+          const body = yield* Effect.promise(() => result.json());
+
+          return {
+            body,
+            contentType: result.headers.get("content-type"),
+            cors: result.headers.get("access-control-allow-origin"),
+            status: result.status,
+          };
+        }),
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.contentType).toContain("application/json");
+    expect(response.cors).toBe("*");
+    expect(response.body).toMatchObject({
+      running: [
+        {
+          issueId: "issue-1",
+          identifier: "ABC-1",
+          turnCount: 1,
+          state: "In Progress",
+        },
+      ],
+      retrying: [
+        {
+          issueId: "issue-2",
+          identifier: "ABC-2",
+          attempt: 3,
+          dueAt: "1970-01-01T00:00:01.000Z",
+          error: "rate limited",
+        },
+      ],
+      tokenTotals: {
+        inputTokens: 10,
+        outputTokens: 5,
+        totalTokens: 15,
+        runtimeSeconds: 7,
+      },
+      config: {
+        pollingIntervalMs: 250,
+        maxConcurrentAgents: 2,
+      },
+      lastPollAt: "1970-01-01T00:00:02.000Z",
+    });
+    expect(response.body.running[0].startedAt).toEqual(expect.any(String));
+    expect(response.body.running[0].elapsedMs).toEqual(expect.any(Number));
+  });
+
+  it("serves issue details for running, retrying, and idle issues", async () => {
+    const response = await runWithServer(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const server = yield* HttpServer;
+          const state = yield* OrchestratorStateRef;
+
+          yield* state.markRunning("issue-1", makeFiber(), "ABC-1", "Todo");
+          yield* state.markRetryQueued("issue-2", 2, "failed", {
+            identifier: "ABC-2",
+            dueAt: 1_000,
+          });
+
+          const binding = yield* server.start({ port: 0 });
+          const baseUrl = `http://${binding.host}:${binding.port}/api/v1/issues`;
+          const [running, retrying, idle] = yield* Effect.promise(() =>
+            Promise.all([
+              fetch(`${baseUrl}/ABC-1`).then((item) => item.json()),
+              fetch(`${baseUrl}/ABC-2`).then((item) => item.json()),
+              fetch(`${baseUrl}/ABC-3`).then((item) => item.json()),
+            ]),
+          );
+
+          return { idle, retrying, running };
+        }),
+      ),
+    );
+
+    expect(response.running).toMatchObject({
+      identifier: "ABC-1",
+      status: "running",
+      running: {
+        turnCount: 0,
+        startedAt: expect.any(String),
+        elapsedMs: expect.any(Number),
+      },
+    });
+    expect(response.retrying).toEqual({
+      identifier: "ABC-2",
+      status: "retrying",
+      retry: {
+        attempt: 2,
+        dueAt: "1970-01-01T00:00:01.000Z",
+        error: "failed",
+      },
+    });
+    expect(response.idle).toEqual({ identifier: "ABC-3", status: "idle" });
+  });
+
+  it("sets the refresh flag when POST refresh is called", async () => {
+    const refreshRequested = await runWithServer(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const server = yield* HttpServer;
+          const refresh = yield* OrchestratorRefresh;
+          const binding = yield* server.start({ port: 0 });
+
+          const result = yield* Effect.promise(() =>
+            fetch(`http://${binding.host}:${binding.port}/api/v1/refresh`, {
+              method: "POST",
+            }),
+          );
+          const body = yield* Effect.promise(() => result.json());
+          const requested = yield* refresh.takeRefreshRequested();
+
+          return { body, requested, status: result.status };
+        }),
+      ),
+    );
+
+    expect(refreshRequested.status).toBe(200);
+    expect(refreshRequested.body).toEqual({ refreshRequested: true });
+    expect(refreshRequested.requested).toBe(true);
+  });
+});

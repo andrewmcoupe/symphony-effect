@@ -1,4 +1,4 @@
-import { Deferred, Effect } from "effect";
+import { Deferred, Effect, Fiber } from "effect";
 import { describe, expect, it } from "vitest";
 import type { AgentRunner } from "../agent/index.js";
 import { ValidationFailed, type LoadedConfig, type PromptRenderer } from "../config/index.js";
@@ -15,6 +15,11 @@ import {
   type ConcurrencyController as ConcurrencyControllerService,
 } from "./concurrency.js";
 import { makeOrchestrator } from "./orchestrator.js";
+import {
+  OrchestratorRefresh,
+  OrchestratorRefreshLive,
+  type OrchestratorRefresh as OrchestratorRefreshService,
+} from "./refresh.js";
 import type { Reconciler } from "./reconciliation.js";
 import { OrchestratorStateRef, OrchestratorStateRefLive } from "./state/index.js";
 import type { Worker, WorkerResult } from "./worker.js";
@@ -85,14 +90,16 @@ const inertWorkspaceManager: WorkspaceManagerService = {
 const runWithOrchestrator = <A, E>(
   build: (services: {
     readonly concurrency: ConcurrencyControllerService;
+    readonly refresh: OrchestratorRefreshService;
     readonly stateRef: OrchestratorStateRef;
   }) => Effect.Effect<A, E>,
 ) =>
   Effect.runPromise(
     Effect.gen(function* () {
       const concurrency = yield* ConcurrencyController;
+      const refresh = yield* OrchestratorRefresh;
       const stateRef = yield* OrchestratorStateRef;
-      return yield* build({ concurrency, stateRef });
+      return yield* build({ concurrency, refresh, stateRef });
     }).pipe(
       Effect.provide(
         makeConcurrencyControllerLive({
@@ -102,6 +109,7 @@ const runWithOrchestrator = <A, E>(
           max_retry_backoff_ms: 300_000,
         }),
       ),
+      Effect.provide(OrchestratorRefreshLive),
       Effect.provide(OrchestratorStateRefLive),
     ),
   );
@@ -314,6 +322,55 @@ describe("Orchestrator", () => {
 
     expect(output.first).toEqual({ _tag: "Completed", intervalMs: 111 });
     expect(output.second).toEqual({ _tag: "Completed", intervalMs: 222 });
+    expect(output.loadCalls).toBe(2);
+  });
+
+  it("wakes the polling loop when a refresh is requested", async () => {
+    const output = await runWithOrchestrator(({ concurrency, refresh, stateRef }) =>
+      Effect.gen(function* () {
+        const firstPoll = yield* Deferred.make<void>();
+        const secondPoll = yield* Deferred.make<void>();
+        let loadCalls = 0;
+
+        const orchestrator = makeOrchestrator({
+          workflowPath,
+          agent: inertAgent,
+          concurrency,
+          hookExecutor: inertHookExecutor,
+          loader: makeLoader(() =>
+            Effect.sync(() => {
+              loadCalls += 1;
+              return loadedConfig(10_000);
+            }).pipe(
+              Effect.tap(() =>
+                loadCalls === 1
+                  ? Deferred.succeed(firstPoll, undefined)
+                  : Deferred.succeed(secondPoll, undefined),
+              ),
+            ),
+          ),
+          promptRenderer: inertPromptRenderer,
+          refresh,
+          reconciler: makeReconciler(),
+          stateRef,
+          tracker: makeTracker(),
+          workspaceManager: inertWorkspaceManager,
+        });
+
+        const fiber = yield* Effect.fork(orchestrator.start());
+        yield* Deferred.await(firstPoll);
+        yield* refresh.requestRefresh();
+        const refreshed = yield* Deferred.await(secondPoll).pipe(
+          Effect.as(true),
+          Effect.race(Effect.sleep(100).pipe(Effect.as(false))),
+        );
+        yield* Fiber.interrupt(fiber);
+
+        return { loadCalls, refreshed };
+      }),
+    );
+
+    expect(output.refreshed).toBe(true);
     expect(output.loadCalls).toBe(2);
   });
 

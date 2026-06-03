@@ -39,6 +39,11 @@ export interface TokenTotals {
   readonly runtimeSeconds: number;
 }
 
+export interface RuntimeConfigSnapshot {
+  readonly pollingIntervalMs: number;
+  readonly maxConcurrentAgents: number;
+}
+
 export interface RunningIssue {
   readonly issueId: string;
   readonly identifier: string;
@@ -54,6 +59,7 @@ export interface OrchestratorState {
   readonly running: Map<string, RunningIssue>;
   readonly retryQueue: ReadonlyArray<RetryEntry>;
   readonly tokenTotals: TokenTotals;
+  readonly runtimeConfig: RuntimeConfigSnapshot;
   readonly lastPollAt: number | null;
   readonly claims?: Map<string, IssueClaimState>;
   readonly identifiers?: Map<string, string>;
@@ -111,6 +117,7 @@ export interface OrchestratorSnapshot {
   readonly running: ReadonlyArray<RunningIssueSnapshot>;
   readonly retryQueue: ReadonlyArray<RetryEntry>;
   readonly tokenTotals: TokenTotals;
+  readonly runtimeConfig: RuntimeConfigSnapshot;
   readonly lastPollAt: number | null;
   readonly claims: ReadonlyArray<IssueClaimSnapshot>;
 }

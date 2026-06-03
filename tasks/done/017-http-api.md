@@ -9,12 +9,12 @@ Implement the observability HTTP API using Hono.
 
 ## Acceptance Criteria
 
-- [ ] `HttpServer` Effect service defined
-- [ ] Hono app with routes:
+- [x] `HttpServer` Effect service defined
+- [x] Hono app with routes:
   - `GET /api/v1/state` - Full orchestrator snapshot
   - `GET /api/v1/issues/:identifier` - Issue-specific details
   - `POST /api/v1/refresh` - Trigger immediate poll
-- [ ] `GET /api/v1/state` response:
+- [x] `GET /api/v1/state` response:
   ```typescript
   interface StateSnapshot {
     running: {
@@ -45,7 +45,7 @@ Implement the observability HTTP API using Hono.
     lastPollAt: string | null
   }
   ```
-- [ ] `GET /api/v1/issues/:identifier` response:
+- [x] `GET /api/v1/issues/:identifier` response:
   ```typescript
   interface IssueDetail {
     identifier: string
@@ -54,12 +54,12 @@ Implement the observability HTTP API using Hono.
     retry?: { attempt: number; dueAt: string; error: string }
   }
   ```
-- [ ] `POST /api/v1/refresh` triggers immediate poll tick
-- [ ] CORS headers for dashboard access
-- [ ] Bind to loopback (127.0.0.1) by default
-- [ ] Port from CLI `--port` argument
-- [ ] `HttpServerLive` layer
-- [ ] Integration tests
+- [x] `POST /api/v1/refresh` triggers immediate poll tick
+- [x] CORS headers for dashboard access
+- [x] Bind to loopback (127.0.0.1) by default
+- [x] Port from CLI `--port` argument
+- [x] `HttpServerLive` layer
+- [x] Integration tests
 
 ## Technical Notes
 
