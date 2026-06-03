@@ -144,6 +144,56 @@ describe("OrchestratorStateRef", () => {
     expect(snapshot.claims).toEqual([]);
   });
 
+  it("takes due retries and clears their retry claims", async () => {
+    const result = await runWithState(
+      Effect.gen(function* () {
+        const state = yield* OrchestratorStateRef;
+        yield* state.markRetryQueued("issue-1", 1, "first", {
+          dueAt: 100,
+          identifier: "ABC-1",
+        });
+        yield* state.markRetryQueued("issue-2", 2, "second", {
+          dueAt: 300,
+          identifier: "ABC-2",
+        });
+
+        const due = yield* state.takeDueRetries(100);
+        const snapshot = yield* state.getSnapshot();
+
+        return { due, snapshot };
+      }),
+    );
+
+    expect(result.due).toEqual([
+      {
+        issueId: "issue-1",
+        identifier: "ABC-1",
+        attempt: 1,
+        dueAt: 100,
+        error: "first",
+      },
+    ]);
+    expect(result.snapshot.retryQueue).toEqual([
+      {
+        issueId: "issue-2",
+        identifier: "ABC-2",
+        attempt: 2,
+        dueAt: 300,
+        error: "second",
+      },
+    ]);
+    expect(result.snapshot.claims).toEqual([
+      {
+        issueId: "issue-2",
+        _tag: "RetryQueued",
+        identifier: "ABC-2",
+        attempt: 2,
+        dueAt: 300,
+        error: "second",
+      },
+    ]);
+  });
+
   it("increments token totals and records poll time", async () => {
     const snapshot = await runWithState(
       Effect.gen(function* () {

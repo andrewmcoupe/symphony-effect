@@ -94,6 +94,25 @@ export const markRetryQueuedMutation =
     return { ...next, retryQueue };
   };
 
+export const takeDueRetriesMutation =
+  (now = Date.now()) =>
+  (state: OrchestratorState): readonly [ReadonlyArray<RetryEntry>, OrchestratorState] => {
+    const next = copyState(state);
+    const due: RetryEntry[] = [];
+    const pending: RetryEntry[] = [];
+
+    for (const entry of next.retryQueue) {
+      if (entry.dueAt <= now) {
+        due.push(entry);
+        next.claims?.delete(entry.issueId);
+      } else {
+        pending.push(entry);
+      }
+    }
+
+    return [due, { ...next, retryQueue: pending }];
+  };
+
 export const releaseIssueMutation =
   (issueId: string) =>
   (state: OrchestratorState): OrchestratorState => {

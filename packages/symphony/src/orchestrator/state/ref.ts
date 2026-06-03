@@ -9,12 +9,14 @@ import {
   recordPollMutation,
   releaseIssueMutation,
   resolveIssueIdentifier,
+  takeDueRetriesMutation,
   updateActivityMutation,
 } from "./mutations.js";
 import type {
   MarkRetryQueuedOptions,
   OrchestratorSnapshot,
   OrchestratorState,
+  RetryEntry,
   TokenUsageDelta,
   WorkerError,
 } from "./types.js";
@@ -33,6 +35,7 @@ export interface OrchestratorStateRef {
     error: string,
     options?: MarkRetryQueuedOptions,
   ) => Effect.Effect<void>;
+  readonly takeDueRetries: (now?: number) => Effect.Effect<ReadonlyArray<RetryEntry>>;
   readonly releaseIssue: (issueId: string) => Effect.Effect<void>;
   readonly updateActivity: (issueId: string) => Effect.Effect<void>;
   readonly incrementTokens: (usage: TokenUsageDelta) => Effect.Effect<void>;
@@ -74,6 +77,7 @@ export const makeOrchestratorStateRef = (
         error,
       })(state),
     ),
+  takeDueRetries: (now) => Ref.modify(ref, takeDueRetriesMutation(now)),
   releaseIssue: (issueId) => Ref.update(ref, releaseIssueMutation(issueId)),
   updateActivity: (issueId) => Ref.update(ref, updateActivityMutation(issueId)),
   incrementTokens: (usage) => Ref.update(ref, incrementTokensMutation(usage)),

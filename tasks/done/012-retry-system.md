@@ -10,21 +10,21 @@ Implement exponential backoff retry queue with Effect Schedule.
 
 ## Acceptance Criteria
 
-- [ ] `RetryScheduler` Effect service defined
-- [ ] `calculateDelay(attempt: number)` method:
+- [x] `RetryScheduler` Effect service defined
+- [x] `calculateDelay(attempt: number)` method:
   - Formula: `min(10000 * 2^(attempt-1), max_retry_backoff_ms)`
   - Returns delay in milliseconds
-- [ ] `scheduleRetry(issueId, identifier, attempt, error)` method:
+- [x] `scheduleRetry(issueId, identifier, attempt, error)` method:
   - Calculates delay
   - Adds entry to retry queue in state
   - Entry includes `dueAt` timestamp
-- [ ] `getDueRetries()` method:
+- [x] `getDueRetries()` method:
   - Returns retry entries where `dueAt <= now`
   - Removes returned entries from queue
-- [ ] `scheduleContinuation(issueId, identifier)` method:
+- [x] `scheduleContinuation(issueId, identifier)` method:
   - Short delay (1000ms) for normal continuation
   - Used after clean worker exit to re-check issue state
-- [ ] Retry entry structure:
+- [x] Retry entry structure:
   ```typescript
   interface RetryEntry {
     issueId: string
@@ -34,8 +34,8 @@ Implement exponential backoff retry queue with Effect Schedule.
     error: string
   }
   ```
-- [ ] `RetrySchedulerLive` layer depending on config and state
-- [ ] Unit tests:
+- [x] `RetrySchedulerLive` layer depending on config and state
+- [x] Unit tests:
   - Delay calculation (various attempts)
   - Cap at max_retry_backoff_ms
   - Due retry retrieval

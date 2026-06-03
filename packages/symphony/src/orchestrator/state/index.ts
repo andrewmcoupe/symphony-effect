@@ -8,6 +8,7 @@ export {
   markRunningMutation,
   recordPollMutation,
   releaseIssueMutation,
+  takeDueRetriesMutation,
   updateActivityMutation,
 } from "./mutations.js";
 export {
