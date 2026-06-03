@@ -1,9 +1,27 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
+import { routeTree } from "./routeTree.gen";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5_000,
+      refetchInterval: 5_000,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
+const router = createRouter({ routeTree });
+
+declare module "@tanstack/react-router" {
+  interface Register {
+    router: typeof router;
+  }
+}
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {
@@ -13,9 +31,7 @@ if (!rootElement) {
 createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <main className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
-        <h1 className="text-2xl font-semibold">TypeScript Symphony</h1>
-      </main>
+      <RouterProvider router={router} />
     </QueryClientProvider>
   </StrictMode>,
 );

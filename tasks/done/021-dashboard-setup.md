@@ -8,31 +8,31 @@ Set up the React dashboard with Vite 8, TanStack Query, TanStack Router, Tailwin
 
 ## Acceptance Criteria
 
-- [ ] Vite 8 configured for React + TypeScript
-- [ ] TanStack Query setup:
+- [x] Vite 8 configured for React + TypeScript
+- [x] TanStack Query setup:
   - QueryClient configured
   - QueryClientProvider at root
   - Default stale time and refetch settings
-- [ ] TanStack Router setup:
+- [x] TanStack Router setup:
   - File-based routing configured
   - Root layout with outlet
   - Type-safe route definitions
-- [ ] Tailwind CSS 4 configured:
+- [x] Tailwind CSS 4 configured:
   - `@tailwindcss/vite` plugin added to `vite.config.ts` (no PostCSS/Autoprefixer needed)
   - CSS-first config: `@import "tailwindcss"` in `index.css`
   - Theme customization via `@theme` in CSS (no `tailwind.config.js`)
-- [ ] shadcn/ui initialized:
+- [x] shadcn/ui initialized:
   - `components.json` configured
   - Base components installed (button, card, badge, table)
   - Dark mode support (class-based)
-- [ ] Proxy configured for API:
+- [x] Proxy configured for API:
   - Vite dev server proxies `/api/*` to orchestrator
-- [ ] Base layout:
+- [x] Base layout:
   - Header with "Symphony" title
   - Navigation placeholder
   - Main content area
-- [ ] `pnpm -F dashboard dev` starts dev server
-- [ ] `pnpm -F dashboard build` produces production build
+- [x] `pnpm -F dashboard dev` starts dev server
+- [x] `pnpm -F dashboard build` produces production build
 
 ## Technical Notes
 
