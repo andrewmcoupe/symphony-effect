@@ -25,6 +25,7 @@ export interface OrchestratorStateRef {
     issueId: string,
     fiber: Fiber.RuntimeFiber<void, WorkerError>,
     identifier?: string,
+    trackerState?: string,
   ) => Effect.Effect<void>;
   readonly markRetryQueued: (
     issueId: string,
@@ -48,10 +49,11 @@ export const makeOrchestratorStateRef = (
   ref: Ref.Ref<OrchestratorState>,
 ): OrchestratorStateRef => ({
   claimIssue: (issueId, identifier) => Ref.update(ref, claimIssueMutation(issueId, identifier)),
-  markRunning: (issueId, fiber, identifier) =>
+  markRunning: (issueId, fiber, identifier, trackerState) =>
     Ref.update(ref, (state) => {
       const now = Date.now();
       const existing = state.running.get(issueId);
+      const currentTrackerState = trackerState ?? existing?.trackerState;
       return markRunningMutation({
         issueId,
         identifier: identifier ?? resolveIssueIdentifier(state, issueId),
@@ -59,6 +61,7 @@ export const makeOrchestratorStateRef = (
         startedAt: existing?.startedAt ?? now,
         turnCount: existing?.turnCount ?? 0,
         lastActivityAt: now,
+        ...(currentTrackerState === undefined ? {} : { trackerState: currentTrackerState }),
       })(state);
     }),
   markRetryQueued: (issueId, attempt, error, options) =>

@@ -10,27 +10,27 @@ Implement global and per-state concurrency limits using Effect Semaphore and cou
 
 ## Acceptance Criteria
 
-- [ ] `ConcurrencyController` Effect service defined
-- [ ] Global semaphore with `max_concurrent_agents` permits
-- [ ] `acquireSlot()` method:
+- [x] `ConcurrencyController` Effect service defined
+- [x] Global semaphore with `max_concurrent_agents` permits
+- [x] `acquireSlot()` method:
   - Acquires global semaphore permit
   - Returns release function
-- [ ] `canDispatch(state: string)` method:
+- [x] `canDispatch(state: string)` method:
   - Checks global availability
   - Checks per-state limit if configured
   - Returns boolean
-- [ ] `getCurrentCounts()` method:
+- [x] `getCurrentCounts()` method:
   ```typescript
   interface ConcurrencyCounts {
     global: { used: number; max: number }
     byState: Map<string, { used: number; max: number }>
   }
   ```
-- [ ] Per-state counting from running map:
+- [x] Per-state counting from running map:
   - Group running issues by current tracker state
   - Compare against `max_concurrent_agents_by_state[state]`
-- [ ] `ConcurrencyControllerLive` layer depending on config and state
-- [ ] Unit tests:
+- [x] `ConcurrencyControllerLive` layer depending on config and state
+- [x] Unit tests:
   - Global limit enforcement
   - Per-state limit enforcement
   - Mixed limits

@@ -14,6 +14,7 @@ export type IssueClaimState =
       readonly startedAt: number;
       readonly turnCount: number;
       readonly lastActivityAt: number;
+      readonly trackerState?: string;
     }
   | {
       readonly _tag: "RetryQueued";
@@ -44,6 +45,7 @@ export interface RunningIssue {
   readonly startedAt: number;
   readonly turnCount: number;
   readonly lastActivityAt: number;
+  readonly trackerState?: string;
 }
 
 export interface OrchestratorState {
@@ -70,6 +72,7 @@ export interface MarkRetryQueuedOptions {
 export interface RunningIssueSnapshot {
   readonly issueId: string;
   readonly identifier: string;
+  readonly trackerState?: string;
   readonly turnCount: number;
   readonly startedAt: number;
   readonly elapsedMs: number;
@@ -91,6 +94,7 @@ export type IssueClaimSnapshot =
       readonly turnCount: number;
       readonly lastActivityAt: number;
       readonly identifier: string;
+      readonly trackerState?: string;
     }
   | {
       readonly issueId: string;

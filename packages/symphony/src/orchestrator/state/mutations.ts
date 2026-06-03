@@ -67,6 +67,7 @@ export const markRunningMutation =
       startedAt: issue.startedAt,
       turnCount: issue.turnCount,
       lastActivityAt: issue.lastActivityAt,
+      ...(issue.trackerState === undefined ? {} : { trackerState: issue.trackerState }),
     });
     return {
       ...next,
@@ -121,6 +122,7 @@ export const updateActivityMutation =
       startedAt: updated.startedAt,
       turnCount: updated.turnCount,
       lastActivityAt: updated.lastActivityAt,
+      ...(updated.trackerState === undefined ? {} : { trackerState: updated.trackerState }),
     });
     return next;
   };
@@ -171,6 +173,7 @@ const toClaimSnapshot = (
         turnCount: claim.turnCount,
         lastActivityAt: claim.lastActivityAt,
         identifier,
+        ...(claim.trackerState === undefined ? {} : { trackerState: claim.trackerState }),
       };
     case "RetryQueued":
       return {
@@ -189,6 +192,7 @@ const toRunningSnapshot =
   (issue: RunningIssue): RunningIssueSnapshot => ({
     issueId: issue.issueId,
     identifier: issue.identifier,
+    ...(issue.trackerState === undefined ? {} : { trackerState: issue.trackerState }),
     turnCount: issue.turnCount,
     startedAt: issue.startedAt,
     elapsedMs: Math.max(0, now - issue.startedAt),
