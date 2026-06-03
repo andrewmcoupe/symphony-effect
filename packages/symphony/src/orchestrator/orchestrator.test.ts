@@ -82,6 +82,7 @@ const inertHookExecutor: HookExecutorService = {
 
 const inertWorkspaceManager: WorkspaceManagerService = {
   getWorkspacePath: (identifier) => Effect.succeed(`/tmp/symphony/${identifier}`),
+  listWorkspaceDirectories: () => Effect.succeed([]),
   ensureWorkspace: (identifier) =>
     Effect.succeed({ path: `/tmp/symphony/${identifier}`, createdNow: true }),
   removeWorkspace: () => Effect.void,

@@ -4,6 +4,7 @@ export {
   HookExecutionFailed,
   HookNonZeroExit,
   HookTimedOut,
+  ListingFailed,
   PathViolation,
   RemovalFailed,
   WorkspaceError,

@@ -8,10 +8,9 @@ import {
   OrchestratorStateRef,
   type OrchestratorStateRefService,
 } from "./orchestrator/index.js";
-import { TrackerClient, type Issue } from "./tracker/index.js";
+import { cleanupTerminalIssueWorkspaces } from "./orchestrator/startup.js";
 import { ConfigLoader, ConfigLoaderLive, type LoadedConfig } from "./config/index.js";
 import { makeMainLive } from "./layers.js";
-import { HookExecutor, WorkspaceManager } from "./workspace/index.js";
 import { type CliOptions, runCli } from "./cli.js";
 
 const SHUTDOWN_TIMEOUT_MS = 30_000;
@@ -34,34 +33,6 @@ export interface StartupActions<R, E> {
 
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
-
-const cleanupIssueWorkspace = (
-  issue: Issue,
-  loaded: LoadedConfig,
-): Effect.Effect<void, never, WorkspaceManager | HookExecutor> =>
-  Effect.gen(function* () {
-    const hooks = loaded.config.hooks;
-    const hookExecutor = yield* HookExecutor;
-    const workspaceManager = yield* WorkspaceManager;
-    const workspacePath = yield* workspaceManager.getWorkspacePath(issue.identifier);
-
-    yield* hookExecutor
-      .executeLifecycleHook({
-        hook: hooks.before_remove,
-        hookName: "before_remove",
-        workspacePath,
-        timeoutMs: hooks.timeout_ms,
-        issueIdentifier: issue.identifier,
-      })
-      .pipe(Effect.catchAll((error) => Effect.logWarning(error.message)));
-
-    yield* workspaceManager
-      .removeWorkspace(issue.identifier)
-      .pipe(Effect.catchAll((error) => Effect.logWarning(error.message)));
-  }).pipe(
-    Effect.catchAll((error) => Effect.logWarning(error.message)),
-    Effect.asVoid,
-  );
 
 const waitForRunningWorkers = (stateRef: OrchestratorStateRefService): Effect.Effect<void> =>
   Effect.gen(function* () {
@@ -103,16 +74,7 @@ export const liveStartupActions: StartupActions<MainEnvironment, MainLayerError 
 
   buildLayer: (options) => makeMainLive(options) as Layer.Layer<MainEnvironment>,
 
-  cleanupTerminalIssues: (loaded) =>
-    Effect.gen(function* () {
-      const tracker = yield* TrackerClient;
-      const issues = yield* tracker.fetchIssuesByStates(loaded.config.tracker.terminal_states);
-
-      yield* Effect.logInfo(`Cleaning ${issues.length} terminal workspace(s)`);
-      yield* Effect.forEach(issues, (issue) => cleanupIssueWorkspace(issue, loaded), {
-        discard: true,
-      });
-    }),
+  cleanupTerminalIssues: cleanupTerminalIssueWorkspaces,
 
   startHttpServer: (port) =>
     Effect.gen(function* () {

@@ -1,6 +1,6 @@
 import { NodeFileSystem } from "@effect/platform-node";
 import { Effect, Either } from "effect";
-import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -98,6 +98,22 @@ describe("WorkspaceManager", () => {
     );
 
     await expect(stat(workspacePath)).rejects.toThrow();
+  });
+
+  it("lists existing workspace directories only", async () => {
+    if (workspaceRoot === undefined) throw new Error("workspaceRoot was not initialized");
+    await mkdir(path.join(workspaceRoot, "ABC-1"));
+    await mkdir(path.join(workspaceRoot, "ABC_2"));
+    await writeFile(path.join(workspaceRoot, "not-a-workspace.txt"), "ignore");
+
+    const directories = await runWithWorkspace(
+      Effect.gen(function* () {
+        const manager = yield* WorkspaceManager;
+        return yield* manager.listWorkspaceDirectories();
+      }),
+    );
+
+    expect(directories.sort()).toEqual(["ABC-1", "ABC_2"]);
   });
 
   it("treats removing a missing workspace as successful", async () => {

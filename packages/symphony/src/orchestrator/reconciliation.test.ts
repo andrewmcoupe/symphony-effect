@@ -30,6 +30,7 @@ const makeTracker = (overrides: Partial<TrackerClient> = {}): TrackerClient => (
 
 const makeWorkspaceManager = (removed: string[] = []): WorkspaceManagerService => ({
   getWorkspacePath: (identifier) => Effect.succeed(`/tmp/symphony/${identifier}`),
+  listWorkspaceDirectories: () => Effect.succeed([]),
   ensureWorkspace: (identifier) =>
     Effect.succeed({ path: `/tmp/symphony/${identifier}`, createdNow: false }),
   removeWorkspace: (identifier) =>

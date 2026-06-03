@@ -97,6 +97,7 @@ const runWithWorker = (mocks: WorkerMocks = {}) => {
 
   const workspaceManager: WorkspaceManagerService = {
     getWorkspacePath: (identifier) => Effect.succeed(`/tmp/symphony/${identifier}`),
+    listWorkspaceDirectories: () => Effect.succeed([]),
     ensureWorkspace: (identifier) => {
       workspaces.push(identifier);
       if (mocks.workspaceError !== undefined) return Effect.fail(mocks.workspaceError);

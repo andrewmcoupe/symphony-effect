@@ -28,6 +28,15 @@ export class RemovalFailed extends Data.TaggedError("WorkspaceError.RemovalFaile
   }
 }
 
+export class ListingFailed extends Data.TaggedError("WorkspaceError.ListingFailed")<{
+  readonly path: string;
+  readonly reason: string;
+}> {
+  override get message(): string {
+    return `Failed to list workspaces at ${this.path}: ${this.reason}`;
+  }
+}
+
 export class HookExecutionFailed extends Data.TaggedError("HookError.ExecutionFailed")<{
   readonly hook: string;
   readonly workspacePath: string;
@@ -62,10 +71,11 @@ export class HookNonZeroExit extends Data.TaggedError("HookError.NonZeroExit")<{
 
 export type HookError = HookExecutionFailed | HookTimedOut | HookNonZeroExit;
 
-export type WorkspaceError = CreationFailed | PathViolation | RemovalFailed;
+export type WorkspaceError = CreationFailed | ListingFailed | PathViolation | RemovalFailed;
 
 export const WorkspaceError = {
   CreationFailed,
+  ListingFailed,
   PathViolation,
   RemovalFailed,
 } as const;

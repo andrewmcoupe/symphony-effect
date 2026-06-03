@@ -2,7 +2,13 @@ import { FileSystem } from "@effect/platform";
 import { NodeFileSystem } from "@effect/platform-node";
 import { Context, Effect, Layer } from "effect";
 import path from "node:path";
-import { CreationFailed, PathViolation, RemovalFailed, type WorkspaceError } from "./errors.js";
+import {
+  CreationFailed,
+  ListingFailed,
+  PathViolation,
+  RemovalFailed,
+  type WorkspaceError,
+} from "./errors.js";
 import { sanitizeIdentifier } from "./sanitize.js";
 import type {
   WorkspaceInfo,
@@ -11,6 +17,7 @@ import type {
 
 export interface WorkspaceManager {
   readonly getWorkspacePath: (identifier: string) => Effect.Effect<string, PathViolation>;
+  readonly listWorkspaceDirectories: () => Effect.Effect<string[], ListingFailed>;
   readonly ensureWorkspace: (
     identifier: string,
   ) => Effect.Effect<WorkspaceInfo, CreationFailed | PathViolation>;
@@ -81,6 +88,30 @@ export const makeWorkspaceManager = ({
       return { path: workspacePath, createdNow: !exists };
     });
 
+  const listWorkspaceDirectories = (): Effect.Effect<string[], ListingFailed> =>
+    Effect.gen(function* () {
+      const names = yield* fileSystem
+        .readDirectory(resolvedRoot)
+        .pipe(
+          Effect.mapError(
+            (error) =>
+              new ListingFailed({ path: resolvedRoot, reason: formatPlatformError(error) }),
+          ),
+        );
+
+      const directories = yield* Effect.forEach(names, (name) =>
+        fileSystem.stat(path.join(resolvedRoot, name)).pipe(
+          Effect.map((info) => (info.type === "Directory" ? name : undefined)),
+          Effect.mapError(
+            (error) =>
+              new ListingFailed({ path: resolvedRoot, reason: formatPlatformError(error) }),
+          ),
+        ),
+      );
+
+      return directories.filter((name): name is string => name !== undefined).sort();
+    });
+
   const removeWorkspace = (
     identifier: string,
   ): Effect.Effect<void, PathViolation | RemovalFailed> =>
@@ -96,7 +127,7 @@ export const makeWorkspaceManager = ({
         );
     });
 
-  return { getWorkspacePath, ensureWorkspace, removeWorkspace };
+  return { getWorkspacePath, listWorkspaceDirectories, ensureWorkspace, removeWorkspace };
 };
 
 export const WorkspaceManagerLive: Layer.Layer<
