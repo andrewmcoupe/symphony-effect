@@ -10,6 +10,15 @@ export {
   type ReleaseSlot,
 } from "./concurrency.js";
 export {
+  DispatchDecider,
+  DispatchDeciderConfig,
+  DispatchDeciderLive,
+  makeDispatchDecider,
+  makeDispatchDeciderLive,
+  type DispatchDecider as DispatchDeciderService,
+  type DispatchDeciderConfigValue,
+} from "./dispatch.js";
+export {
   failureRetrySchedule,
   makeRetryScheduler,
   makeRetrySchedulerLive,

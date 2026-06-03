@@ -12,8 +12,8 @@ Implement the dispatch eligibility rules and issue sorting logic.
 
 ## Acceptance Criteria
 
-- [ ] `DispatchDecider` Effect service defined
-- [ ] `isEligible(issue: Issue)` method checks:
+- [x] `DispatchDecider` Effect service defined
+- [x] `isEligible(issue: Issue)` method checks:
   - State is in `active_states`
   - State is NOT in `terminal_states`
   - Issue is not already running (check state map)
@@ -21,20 +21,20 @@ Implement the dispatch eligibility rules and issue sorting logic.
   - Global concurrency available
   - Per-state concurrency available (if configured)
   - If state is "Todo": no non-terminal blockers
-- [ ] `sortCandidates(issues: Issue[])` method:
+- [x] `sortCandidates(issues: Issue[])` method:
   - Primary: priority ascending (null sorts last)
   - Secondary: createdAt ascending (oldest first)
   - Stable sort
-- [ ] `getDispatchableIssues(candidates: Issue[])` method:
+- [x] `getDispatchableIssues(candidates: Issue[])` method:
   - Filters eligible issues
   - Sorts by priority/age
   - Returns ordered list
-- [ ] Blocker check logic:
+- [x] Blocker check logic:
   - Issue has `blockedBy` array
   - Check if any blocker's state is NOT in `terminal_states`
   - Only applies to "Todo" state (not "In Progress")
-- [ ] `DispatchDeciderLive` layer
-- [ ] Unit tests:
+- [x] `DispatchDeciderLive` layer
+- [x] Unit tests:
   - Eligibility: each rule individually
   - Sorting: priority and age combinations
   - Blocker checking
