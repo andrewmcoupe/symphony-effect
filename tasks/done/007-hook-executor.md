@@ -10,26 +10,26 @@ Implement shell hook execution with timeout enforcement for workspace lifecycle 
 
 ## Acceptance Criteria
 
-- [ ] `HookExecutor` Effect service defined
-- [ ] `executeHook(hook: string, workspacePath: string, timeout: number)` method:
+- [x] `HookExecutor` Effect service defined
+- [x] `executeHook(hook: string, workspacePath: string, timeout: number)` method:
   - Runs hook script via `sh -lc`
   - Working directory: workspace path
   - Enforces timeout (kills process if exceeded)
   - Returns exit code and output
-- [ ] Hook types with proper semantics:
+- [x] Hook types with proper semantics:
   - `after_create`: failure is fatal to workspace creation
   - `before_run`: failure aborts current attempt
   - `after_run`: failure is logged, ignored
   - `before_remove`: failure is logged, ignored
-- [ ] `HookError` type:
+- [x] `HookError` type:
   - `HookError.ExecutionFailed`
   - `HookError.TimedOut`
   - `HookError.NonZeroExit`
-- [ ] Environment variables passed to hooks:
+- [x] Environment variables passed to hooks:
   - `ISSUE_IDENTIFIER`: the issue identifier
   - `WORKSPACE_PATH`: absolute path to workspace
-- [ ] `HookExecutorLive` layer using `@effect/platform` Command
-- [ ] Unit tests:
+- [x] `HookExecutorLive` layer using `@effect/platform` Command
+- [x] Unit tests:
   - Successful hook execution
   - Timeout enforcement
   - Non-zero exit handling
