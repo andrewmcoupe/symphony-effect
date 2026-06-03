@@ -7,7 +7,8 @@
     "perf": "warn"
   },
   "rules": {
-    "import/no-unassigned-import": "off"
+    "import/no-unassigned-import": "off",
+    "no-underscore-dangle": ["warn", { "allow": ["_tag"] }]
   },
   "ignorePatterns": [
     "**/dist/**",

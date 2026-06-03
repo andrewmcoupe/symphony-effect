@@ -8,24 +8,24 @@ Define the Effect Schema for WORKFLOW.md configuration with environment variable
 
 ## Acceptance Criteria
 
-- [ ] `WorkflowConfig` schema defined with all fields from spec:
+- [x] `WorkflowConfig` schema defined with all fields from spec:
   - `tracker` (kind, endpoint, api_key, project_slug, active_states, terminal_states)
   - `polling` (interval_ms)
   - `workspace` (root)
   - `hooks` (after_create, before_run, after_run, before_remove, timeout_ms)
   - `agent` (max_concurrent_agents, max_turns, max_retry_backoff_ms, max_concurrent_agents_by_state)
-- [ ] Default values applied:
+- [x] Default values applied:
   - `tracker.endpoint`: `https://api.linear.app/graphql`
   - `polling.interval_ms`: `30000`
   - `hooks.timeout_ms`: `60000`
   - `agent.max_concurrent_agents`: `10`
   - `agent.max_turns`: `20`
   - `agent.max_retry_backoff_ms`: `300000`
-- [ ] Environment variable resolution (`$VAR` syntax) via Schema transform
-- [ ] Path expansion (`~` for home directory)
-- [ ] Typed error for missing env vars: `ConfigError.MissingEnvVar`
-- [ ] Typed error for validation failures: `ConfigError.ValidationFailed`
-- [ ] Unit tests for:
+- [x] Environment variable resolution (`$VAR` syntax) via Schema transform
+- [x] Path expansion (`~` for home directory)
+- [x] Typed error for missing env vars: `ConfigError.MissingEnvVar`
+- [x] Typed error for validation failures: `ConfigError.ValidationFailed`
+- [x] Unit tests for:
   - Valid config parsing
   - Default value application
   - `$VAR` resolution (success and missing)
