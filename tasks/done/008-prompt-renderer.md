@@ -9,26 +9,26 @@ Implement Liquid template rendering for prompt templates with strict mode.
 
 ## Acceptance Criteria
 
-- [ ] `PromptRenderer` Effect service defined
-- [ ] `render(template: string, variables: PromptVariables)` method:
+- [x] `PromptRenderer` Effect service defined
+- [x] `render(template: string, variables: PromptVariables)` method:
   - Uses LiquidJS engine
   - Strict mode: unknown variables fail
   - Strict mode: unknown filters fail
   - Returns rendered string
-- [ ] `PromptVariables` type:
+- [x] `PromptVariables` type:
   ```typescript
   interface PromptVariables {
     issue: Issue
     attempt: number | null  // null on first run, >= 1 on retry
   }
   ```
-- [ ] Built-in Liquid filters work (e.g., `default`, `join`, `upcase`)
-- [ ] `RenderError` type:
+- [x] Built-in Liquid filters work (e.g., `default`, `join`, `upcase`)
+- [x] `RenderError` type:
   - `RenderError.UnknownVariable`
   - `RenderError.UnknownFilter`
   - `RenderError.SyntaxError`
-- [ ] `PromptRendererLive` layer (no dependencies, pure)
-- [ ] Unit tests:
+- [x] `PromptRendererLive` layer (no dependencies, pure)
+- [x] Unit tests:
   - Basic variable substitution (`{{ issue.title }}`)
   - Nested access (`{{ issue.labels | join: ", " }}`)
   - Conditionals (`{% if attempt %}...{% endif %}`)
