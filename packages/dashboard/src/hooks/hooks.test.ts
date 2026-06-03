@@ -41,6 +41,7 @@ const stateSnapshot: StateSnapshot = {
 const issueDetail: IssueDetail = {
   identifier: "ABC/1",
   status: "idle",
+  state: "Todo",
 };
 
 const makeJsonResponse = (body: unknown, init?: ResponseInit): Promise<Response> =>

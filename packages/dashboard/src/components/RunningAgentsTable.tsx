@@ -1,3 +1,5 @@
+import { Link } from "@tanstack/react-router";
+
 import type { RunningIssue } from "@/api/types";
 import { formatDuration } from "@/components/format";
 import { StateBadge } from "@/components/StateBadge";
@@ -44,12 +46,13 @@ export function RunningAgentsTable({ running }: RunningAgentsTableProps) {
             return (
               <TableRow key={issue.issueId}>
                 <TableCell className="font-medium">
-                  <a
-                    href={`/issues/${encodeURIComponent(issue.identifier)}`}
+                  <Link
+                    to="/issues/$identifier"
+                    params={{ identifier: issue.identifier }}
                     className="text-primary underline-offset-4 hover:underline"
                   >
                     {issue.identifier}
-                  </a>
+                  </Link>
                 </TableCell>
                 <TableCell>
                   <StateBadge state={issue.state} />

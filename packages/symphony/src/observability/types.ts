@@ -31,6 +31,7 @@ export interface StateSnapshot {
 export interface IssueDetail {
   readonly identifier: string;
   readonly status: "running" | "retrying" | "idle";
+  readonly state?: string;
   readonly running?: {
     readonly turnCount: number;
     readonly startedAt: string;

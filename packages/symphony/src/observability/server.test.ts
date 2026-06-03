@@ -145,18 +145,23 @@ describe("HttpServer", () => {
             identifier: "ABC-2",
             dueAt: 1_000,
           });
+          yield* state.claimIssue("issue-3", "ABC-3");
 
           const binding = yield* server.start({ port: 0 });
           const baseUrl = `http://${binding.host}:${binding.port}/api/v1/issues`;
-          const [running, retrying, idle] = yield* Effect.promise(() =>
+          const [running, retrying, idle, missing] = yield* Effect.promise(() =>
             Promise.all([
               fetch(`${baseUrl}/ABC-1`).then((item) => item.json()),
               fetch(`${baseUrl}/ABC-2`).then((item) => item.json()),
               fetch(`${baseUrl}/ABC-3`).then((item) => item.json()),
+              fetch(`${baseUrl}/ABC-4`).then(async (item) => ({
+                body: await item.json(),
+                status: item.status,
+              })),
             ]),
           );
 
-          return { idle, retrying, running };
+          return { idle, missing, retrying, running };
         }),
       ),
     );
@@ -164,6 +169,7 @@ describe("HttpServer", () => {
     expect(response.running).toMatchObject({
       identifier: "ABC-1",
       status: "running",
+      state: "Todo",
       running: {
         turnCount: 0,
         startedAt: expect.any(String),
@@ -180,6 +186,10 @@ describe("HttpServer", () => {
       },
     });
     expect(response.idle).toEqual({ identifier: "ABC-3", status: "idle" });
+    expect(response.missing).toEqual({
+      body: { message: "Issue ABC-4 was not found" },
+      status: 404,
+    });
   });
 
   it("sets the refresh flag when POST refresh is called", async () => {

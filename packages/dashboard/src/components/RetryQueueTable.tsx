@@ -1,3 +1,5 @@
+import { Link } from "@tanstack/react-router";
+
 import type { RetryEntry } from "@/api/types";
 import { Countdown } from "@/components/Countdown";
 import {
@@ -35,12 +37,13 @@ export function RetryQueueTable({ retrying }: RetryQueueTableProps) {
           retrying.map((entry) => (
             <TableRow key={`${entry.issueId}-${entry.attempt}`}>
               <TableCell className="font-medium">
-                <a
-                  href={`/issues/${encodeURIComponent(entry.identifier)}`}
+                <Link
+                  to="/issues/$identifier"
+                  params={{ identifier: entry.identifier }}
                   className="text-primary underline-offset-4 hover:underline"
                 >
                   {entry.identifier}
-                </a>
+                </Link>
               </TableCell>
               <TableCell className="text-right tabular-nums">{entry.attempt}</TableCell>
               <TableCell className="tabular-nums">

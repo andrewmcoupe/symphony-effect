@@ -37,16 +37,24 @@ const toStateSnapshot = (snapshot: OrchestratorSnapshot): StateSnapshot => ({
   shutdownRequested: snapshot.shutdownRequested,
 });
 
-const toIssueDetail = (identifier: string, snapshot: OrchestratorSnapshot): IssueDetail => {
+type IssueDetailResult =
+  | { readonly status: 200; readonly detail: IssueDetail }
+  | { readonly status: 404; readonly detail: { readonly message: string } };
+
+const toIssueDetail = (identifier: string, snapshot: OrchestratorSnapshot): IssueDetailResult => {
   const running = snapshot.running.find((issue) => issue.identifier === identifier);
   if (running !== undefined) {
     return {
-      identifier,
-      status: "running",
-      running: {
-        turnCount: running.turnCount,
-        startedAt: toIsoString(running.startedAt),
-        elapsedMs: running.elapsedMs,
+      status: 200,
+      detail: {
+        identifier,
+        status: "running",
+        ...(running.trackerState === undefined ? {} : { state: running.trackerState }),
+        running: {
+          turnCount: running.turnCount,
+          startedAt: toIsoString(running.startedAt),
+          elapsedMs: running.elapsedMs,
+        },
       },
     };
   }
@@ -54,17 +62,36 @@ const toIssueDetail = (identifier: string, snapshot: OrchestratorSnapshot): Issu
   const retry = snapshot.retryQueue.find((entry) => entry.identifier === identifier);
   if (retry !== undefined) {
     return {
-      identifier,
-      status: "retrying",
-      retry: {
-        attempt: retry.attempt,
-        dueAt: toIsoString(retry.dueAt),
-        error: retry.error,
+      status: 200,
+      detail: {
+        identifier,
+        status: "retrying",
+        retry: {
+          attempt: retry.attempt,
+          dueAt: toIsoString(retry.dueAt),
+          error: retry.error,
+        },
       },
     };
   }
 
-  return { identifier, status: "idle" };
+  const claim = snapshot.claims.find(
+    (entry) => "identifier" in entry && entry.identifier === identifier,
+  );
+  if (claim !== undefined) {
+    return {
+      status: 200,
+      detail: {
+        identifier,
+        status: "idle",
+        ...(claim._tag === "Running" && claim.trackerState !== undefined
+          ? { state: claim.trackerState }
+          : {}),
+      },
+    };
+  }
+
+  return { status: 404, detail: { message: `Issue ${identifier} was not found` } };
 };
 
 export const makeHonoApp = ({ stateRef, refresh }: RoutesOptions): Hono => {
@@ -80,7 +107,11 @@ export const makeHonoApp = ({ stateRef, refresh }: RoutesOptions): Hono => {
   app.get("/api/v1/issues/:identifier", async (context) => {
     const identifier = context.req.param("identifier");
     const snapshot = await Effect.runPromise(stateRef.getSnapshot());
-    return context.json(toIssueDetail(identifier, snapshot));
+    const result = toIssueDetail(identifier, snapshot);
+    if (result.status === 404) {
+      return context.json(result.detail, 404);
+    }
+    return context.json(result.detail, 200);
   });
 
   app.post("/api/v1/refresh", async (context) => {
