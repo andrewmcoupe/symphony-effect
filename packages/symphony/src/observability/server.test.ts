@@ -106,9 +106,31 @@ describe("HttpServer", () => {
         maxConcurrentAgents: 2,
       },
       lastPollAt: "1970-01-01T00:00:02.000Z",
+      shutdownRequested: false,
     });
     expect(response.body.running[0].startedAt).toEqual(expect.any(String));
     expect(response.body.running[0].elapsedMs).toEqual(expect.any(Number));
+  });
+
+  it("closes the listener when its scope is closed", async () => {
+    const result = await runWithServer(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const server = yield* HttpServer;
+          const binding = yield* server.start({ port: 0 });
+          const response = yield* Effect.promise(() =>
+            fetch(`http://${binding.host}:${binding.port}/api/v1/state`),
+          );
+
+          return { binding, status: response.status };
+        }),
+      ),
+    );
+
+    expect(result.status).toBe(200);
+    await expect(
+      fetch(`http://${result.binding.host}:${result.binding.port}/api/v1/state`),
+    ).rejects.toThrow();
   });
 
   it("serves issue details for running, retrying, and idle issues", async () => {

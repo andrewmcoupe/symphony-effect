@@ -223,6 +223,46 @@ describe("Orchestrator", () => {
     ]);
   });
 
+  it("skips tracker dispatch when shutdown has been requested", async () => {
+    let trackerCalls = 0;
+
+    const output = await runWithOrchestrator(({ concurrency, stateRef }) =>
+      Effect.gen(function* () {
+        yield* stateRef.requestShutdown();
+
+        const orchestrator = makeOrchestrator({
+          workflowPath,
+          now: () => 321,
+          agent: inertAgent,
+          concurrency,
+          hookExecutor: inertHookExecutor,
+          loader: makeLoader(() => Effect.succeed(loadedConfig())),
+          promptRenderer: inertPromptRenderer,
+          reconciler: makeReconciler(),
+          stateRef,
+          tracker: makeTracker({
+            fetchCandidateIssues: () =>
+              Effect.sync(() => {
+                trackerCalls += 1;
+                return [issue()];
+              }),
+          }),
+          workspaceManager: inertWorkspaceManager,
+        });
+
+        const result = yield* orchestrator.pollOnce();
+        const snapshot = yield* stateRef.getSnapshot();
+        return { result, snapshot };
+      }),
+    );
+
+    expect(output.result).toEqual({ _tag: "Completed", intervalMs: 50 });
+    expect(output.snapshot.lastPollAt).toBe(321);
+    expect(output.snapshot.shutdownRequested).toBe(true);
+    expect(output.snapshot.running).toEqual([]);
+    expect(trackerCalls).toBe(0);
+  });
+
   it("dispatches due retries before new candidates and schedules continuation on success", async () => {
     const output = await runWithOrchestrator(({ concurrency, stateRef }) =>
       Effect.gen(function* () {

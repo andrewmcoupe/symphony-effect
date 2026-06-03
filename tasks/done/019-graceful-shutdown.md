@@ -12,8 +12,8 @@ Implement proper signal handling and graceful shutdown with timeout.
 
 ## Acceptance Criteria
 
-- [ ] Signal handlers for SIGINT and SIGTERM
-- [ ] Shutdown sequence:
+- [x] Signal handlers for SIGINT and SIGTERM
+- [x] Shutdown sequence:
   1. Log shutdown initiated
   2. Stop accepting new dispatches (set shutdown flag)
   3. Stop polling loop
@@ -23,12 +23,12 @@ Implement proper signal handling and graceful shutdown with timeout.
   7. Run cleanup (workspace hooks if applicable)
   8. Close HTTP server
   9. Exit with code 0
-- [ ] Shutdown flag checked in dispatch loop
-- [ ] Fiber interruption for workers
-- [ ] HTTP server graceful close
-- [ ] Timeout enforcement (30 seconds default)
-- [ ] Clean exit logs
-- [ ] Integration test for shutdown sequence
+- [x] Shutdown flag checked in dispatch loop
+- [x] Fiber interruption for workers
+- [x] HTTP server graceful close
+- [x] Timeout enforcement (30 seconds default)
+- [x] Clean exit logs
+- [x] Integration test for shutdown sequence
 
 ## Technical Notes
 

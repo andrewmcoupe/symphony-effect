@@ -61,6 +61,7 @@ export interface OrchestratorState {
   readonly tokenTotals: TokenTotals;
   readonly runtimeConfig: RuntimeConfigSnapshot;
   readonly lastPollAt: number | null;
+  readonly shutdownRequested: boolean;
   readonly claims?: Map<string, IssueClaimState>;
   readonly identifiers?: Map<string, string>;
 }
@@ -119,5 +120,6 @@ export interface OrchestratorSnapshot {
   readonly tokenTotals: TokenTotals;
   readonly runtimeConfig: RuntimeConfigSnapshot;
   readonly lastPollAt: number | null;
+  readonly shutdownRequested: boolean;
   readonly claims: ReadonlyArray<IssueClaimSnapshot>;
 }

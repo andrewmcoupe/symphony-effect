@@ -34,6 +34,7 @@ const toStateSnapshot = (snapshot: OrchestratorSnapshot): StateSnapshot => ({
   tokenTotals: { ...snapshot.tokenTotals },
   config: { ...snapshot.runtimeConfig },
   lastPollAt: snapshot.lastPollAt === null ? null : toIsoString(snapshot.lastPollAt),
+  shutdownRequested: snapshot.shutdownRequested,
 });
 
 const toIssueDetail = (identifier: string, snapshot: OrchestratorSnapshot): IssueDetail => {

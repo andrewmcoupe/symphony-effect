@@ -10,6 +10,7 @@ export {
   recordRuntimeConfigMutation,
   recordTurnMutation,
   releaseIssueMutation,
+  requestShutdownMutation,
   takeDueRetriesMutation,
   updateActivityMutation,
   updateTrackerStateMutation,

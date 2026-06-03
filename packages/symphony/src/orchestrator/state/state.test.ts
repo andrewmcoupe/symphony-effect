@@ -239,6 +239,24 @@ describe("OrchestratorStateRef", () => {
     expect(snapshot.lastPollAt).toBe(12345);
   });
 
+  it("records shutdown requests", async () => {
+    const result = await runWithState(
+      Effect.gen(function* () {
+        const state = yield* OrchestratorStateRef;
+        const before = yield* state.isShutdownRequested();
+        yield* state.requestShutdown();
+        const after = yield* state.isShutdownRequested();
+        const currentSnapshot = yield* state.getSnapshot();
+
+        return { after, before, snapshot: currentSnapshot };
+      }),
+    );
+
+    expect(result.before).toBe(false);
+    expect(result.after).toBe(true);
+    expect(result.snapshot.shutdownRequested).toBe(true);
+  });
+
   it("provides an isolated service instance per layer", async () => {
     const program = Effect.gen(function* () {
       const state = yield* OrchestratorStateRef;

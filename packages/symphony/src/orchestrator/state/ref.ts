@@ -11,6 +11,7 @@ import {
   recordTurnMutation,
   releaseIssueMutation,
   resolveIssueIdentifier,
+  requestShutdownMutation,
   takeDueRetriesMutation,
   updateActivityMutation,
   updateTrackerStateMutation,
@@ -48,6 +49,8 @@ export interface OrchestratorStateRef {
   readonly incrementTokens: (usage: TokenUsageDelta) => Effect.Effect<void>;
   readonly recordRuntimeConfig: (config: RuntimeConfigSnapshot) => Effect.Effect<void>;
   readonly recordPoll: (lastPollAt?: number) => Effect.Effect<void>;
+  readonly requestShutdown: () => Effect.Effect<void>;
+  readonly isShutdownRequested: () => Effect.Effect<boolean>;
   readonly getState: () => Effect.Effect<OrchestratorState>;
   readonly getSnapshot: () => Effect.Effect<OrchestratorSnapshot>;
 }
@@ -96,6 +99,8 @@ export const makeOrchestratorStateRef = (
   incrementTokens: (usage) => Ref.update(ref, incrementTokensMutation(usage)),
   recordRuntimeConfig: (config) => Ref.update(ref, recordRuntimeConfigMutation(config)),
   recordPoll: (lastPollAt) => Ref.update(ref, recordPollMutation(lastPollAt)),
+  requestShutdown: () => Ref.update(ref, requestShutdownMutation),
+  isShutdownRequested: () => Ref.get(ref).pipe(Effect.map((state) => state.shutdownRequested)),
   getState: () =>
     Ref.get(ref).pipe(
       Effect.map((state) => ({
@@ -104,6 +109,7 @@ export const makeOrchestratorStateRef = (
         tokenTotals: { ...state.tokenTotals },
         runtimeConfig: { ...state.runtimeConfig },
         lastPollAt: state.lastPollAt,
+        shutdownRequested: state.shutdownRequested,
         claims: new Map(state.claims ?? []),
         identifiers: new Map(state.identifiers ?? []),
       })),

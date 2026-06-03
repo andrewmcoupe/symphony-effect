@@ -29,6 +29,7 @@ export const initialOrchestratorState: OrchestratorState = {
   tokenTotals: initialTokenTotals,
   runtimeConfig: initialRuntimeConfig,
   lastPollAt: null,
+  shutdownRequested: false,
   claims: new Map(),
   identifiers: new Map(),
 };
@@ -39,6 +40,7 @@ const copyState = (state: OrchestratorState): OrchestratorState => ({
   tokenTotals: { ...state.tokenTotals },
   runtimeConfig: { ...state.runtimeConfig },
   lastPollAt: state.lastPollAt,
+  shutdownRequested: state.shutdownRequested,
   claims: new Map(state.claims ?? []),
   identifiers: new Map(state.identifiers ?? []),
 });
@@ -233,6 +235,11 @@ export const recordRuntimeConfigMutation =
     runtimeConfig: { ...runtimeConfig },
   });
 
+export const requestShutdownMutation = (state: OrchestratorState): OrchestratorState => ({
+  ...state,
+  shutdownRequested: true,
+});
+
 const toClaimSnapshot = (
   issueId: string,
   claim: IssueClaimState,
@@ -288,6 +295,7 @@ export const getSnapshot = (state: OrchestratorState, now = Date.now()): Orchest
   tokenTotals: { ...state.tokenTotals },
   runtimeConfig: { ...state.runtimeConfig },
   lastPollAt: state.lastPollAt,
+  shutdownRequested: state.shutdownRequested,
   claims: Array.from((state.claims ?? new Map()).entries()).map(([issueId, claim]) =>
     toClaimSnapshot(issueId, claim, state.identifiers?.get(issueId)),
   ),

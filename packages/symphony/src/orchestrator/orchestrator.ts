@@ -150,7 +150,18 @@ export const makeOrchestrator = ({
     attempt: number | null,
   ): Effect.Effect<void> =>
     Effect.gen(function* () {
+      if (yield* stateRef.isShutdownRequested()) {
+        yield* Effect.logInfo(`Skipping dispatch for ${issue.identifier}; shutdown requested`);
+        return;
+      }
+
       yield* stateRef.claimIssue(issue.id, issue.identifier);
+
+      if (yield* stateRef.isShutdownRequested()) {
+        yield* stateRef.releaseIssue(issue.id);
+        yield* Effect.logInfo(`Skipping dispatch for ${issue.identifier}; shutdown requested`);
+        return;
+      }
 
       const acquired = yield* Deferred.make<void>();
       const started = yield* Deferred.make<void>();
@@ -198,6 +209,12 @@ export const makeOrchestrator = ({
 
       const fiber = yield* Effect.forkDaemon(workerProgram);
       yield* Deferred.await(acquired);
+      if (yield* stateRef.isShutdownRequested()) {
+        yield* Fiber.interrupt(fiber);
+        yield* stateRef.releaseIssue(issue.id);
+        yield* Effect.logInfo(`Interrupted dispatch for ${issue.identifier}; shutdown requested`);
+        return;
+      }
       yield* stateRef.markRunning(
         issue.id,
         fiber as Fiber.RuntimeFiber<void, StateWorkerError>,
@@ -221,7 +238,12 @@ export const makeOrchestrator = ({
       });
       const candidatesById = issueById(candidates);
 
-      for (const entry of dueRetries) {
+      for (const [index, entry] of dueRetries.entries()) {
+        if (yield* stateRef.isShutdownRequested()) {
+          yield* requeueDueRetries(stateRef)(dueRetries.slice(index));
+          return;
+        }
+
         const issue = candidatesById.get(entry.issueId);
         if (issue === undefined) {
           yield* stateRef.releaseIssue(entry.issueId);
@@ -251,9 +273,14 @@ export const makeOrchestrator = ({
         concurrency,
         stateRef,
       });
+
+      if (yield* stateRef.isShutdownRequested()) return;
+
       const dispatchable = yield* dispatch.getDispatchableIssues(candidates);
 
       for (const issue of dispatchable) {
+        if (yield* stateRef.isShutdownRequested()) return;
+
         const canDispatch = yield* concurrency.canDispatch(issue.state);
         if (!canDispatch) break;
         yield* dispatchIssue(loaded, issue, null);
@@ -283,6 +310,13 @@ export const makeOrchestrator = ({
         pollingIntervalMs: intervalMs,
         maxConcurrentAgents: loaded.config.agent.max_concurrent_agents,
       });
+
+      if (yield* stateRef.isShutdownRequested()) {
+        yield* Effect.logInfo("Skipping dispatch because shutdown is in progress");
+        yield* stateRef.recordPoll(now());
+        return { _tag: "Completed", intervalMs };
+      }
+
       const retry = makeRetry(loaded);
       const dueRetries = yield* retry.getDueRetries();
       const candidatesResult = yield* tracker.fetchCandidateIssues().pipe(Effect.either);
@@ -296,7 +330,19 @@ export const makeOrchestrator = ({
         return { _tag: "TrackerError", intervalMs };
       }
 
+      if (yield* stateRef.isShutdownRequested()) {
+        yield* requeueDueRetries(stateRef)(dueRetries);
+        yield* Effect.logInfo("Skipping dispatch because shutdown is in progress");
+        yield* stateRef.recordPoll(now());
+        return { _tag: "Completed", intervalMs };
+      }
+
       yield* dispatchDueRetries(loaded, candidatesResult.right, dueRetries);
+      if (yield* stateRef.isShutdownRequested()) {
+        yield* stateRef.recordPoll(now());
+        return { _tag: "Completed", intervalMs };
+      }
+
       yield* dispatchNewCandidates(loaded, removeDueIssues(candidatesResult.right, dueRetries));
       yield* stateRef.recordPoll(now());
       return { _tag: "Completed", intervalMs };

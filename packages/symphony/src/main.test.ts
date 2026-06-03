@@ -1,5 +1,5 @@
 import { NodeFileSystem, NodePath, NodeTerminal } from "@effect/platform-node";
-import { Effect, Layer } from "effect";
+import { Deferred, Effect, Fiber, Layer } from "effect";
 import { describe, expect, it } from "vitest";
 import type { LoadedConfig } from "./config/index.js";
 import { runCli } from "./cli.js";
@@ -115,6 +115,51 @@ describe("CLI startup", () => {
 
     await runCliWithNode(
       runCli(["node", "symphony"], (options) => startSymphony(options, actions)),
+    );
+
+    expect(events).toEqual(["load:./WORKFLOW.md", "cleanup-terminal", "polling", "shutdown"]);
+  });
+
+  it("runs graceful shutdown when the polling loop is interrupted", async () => {
+    const events: string[] = [];
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const pollingStarted = yield* Deferred.make<void>();
+        const keepPolling = yield* Deferred.make<void>();
+        const actions: StartupActions<never, Error> = {
+          loadWorkflow: (workflowPath) =>
+            Effect.sync(() => {
+              events.push(`load:${workflowPath}`);
+              return loadedConfig;
+            }),
+          buildLayer: () => Layer.empty,
+          cleanupTerminalIssues: () =>
+            Effect.sync(() => {
+              events.push("cleanup-terminal");
+            }),
+          startHttpServer: () =>
+            Effect.sync(() => {
+              events.push("http");
+              return { host: "127.0.0.1", port: 0 };
+            }),
+          startPollingLoop: () =>
+            Effect.sync(() => {
+              events.push("polling");
+            }).pipe(
+              Effect.zipRight(Deferred.succeed(pollingStarted, undefined)),
+              Effect.zipRight(Deferred.await(keepPolling)),
+            ),
+          gracefulShutdown: () =>
+            Effect.sync(() => {
+              events.push("shutdown");
+            }),
+        };
+
+        const fiber = yield* Effect.fork(startSymphony({ workflowPath: "./WORKFLOW.md" }, actions));
+        yield* Deferred.await(pollingStarted);
+        yield* Fiber.interrupt(fiber);
+      }),
     );
 
     expect(events).toEqual(["load:./WORKFLOW.md", "cleanup-terminal", "polling", "shutdown"]);

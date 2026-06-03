@@ -70,13 +70,28 @@ const waitForRunningWorkers = (stateRef: OrchestratorStateRefService): Effect.Ef
 
     if (fibers.length === 0) return;
 
-    yield* Effect.logInfo(`Waiting up to ${SHUTDOWN_TIMEOUT_MS}ms for ${fibers.length} worker(s)`);
+    yield* Effect.logInfo(`Waiting for ${fibers.length} running worker(s) to complete`);
     const completed = yield* Fiber.awaitAll(fibers).pipe(Effect.timeoutOption(SHUTDOWN_TIMEOUT_MS));
 
-    if (Option.isSome(completed)) return;
+    if (Option.isSome(completed)) {
+      yield* Effect.logInfo("All running workers completed");
+      return;
+    }
 
-    yield* Effect.logWarning("Graceful shutdown timed out; interrupting remaining workers");
-    yield* Fiber.interruptAll(fibers);
+    const remainingState = yield* stateRef.getState();
+    const remainingFibers = Array.from(remainingState.running.values()).map(
+      (running) => running.fiber,
+    );
+
+    if (remainingFibers.length === 0) {
+      yield* Effect.logInfo("All running workers completed");
+      return;
+    }
+
+    yield* Effect.logWarning(
+      `Timeout reached, force stopping ${remainingFibers.length} remaining worker(s)`,
+    );
+    yield* Fiber.interruptAll(remainingFibers);
   });
 
 export const liveStartupActions: StartupActions<MainEnvironment, MainLayerError | unknown> = {
@@ -114,7 +129,10 @@ export const liveStartupActions: StartupActions<MainEnvironment, MainLayerError 
   gracefulShutdown: () =>
     Effect.gen(function* () {
       const stateRef = yield* OrchestratorStateRef;
+      yield* Effect.logInfo("Stopping dispatch of new work...");
+      yield* stateRef.requestShutdown();
       yield* waitForRunningWorkers(stateRef);
+      yield* Effect.logInfo("Shutdown complete");
     }).pipe(Effect.catchAllCause((cause) => Effect.logWarning(Cause.pretty(cause)))),
 };
 
@@ -139,7 +157,6 @@ export const startSymphony = <R, E>(
 
     yield* Effect.scoped(
       Effect.gen(function* () {
-        yield* Effect.addFinalizer(() => actions.gracefulShutdown());
         yield* actions.cleanupTerminalIssues(loaded);
 
         if (options.port !== undefined) {
@@ -147,6 +164,7 @@ export const startSymphony = <R, E>(
           yield* Effect.logInfo(`HTTP server listening on http://${binding.host}:${binding.port}`);
         }
 
+        yield* Effect.addFinalizer(() => actions.gracefulShutdown());
         yield* Effect.logInfo("Starting polling loop...");
         yield* actions.startPollingLoop();
       }).pipe(Effect.provide(layer)),
@@ -176,7 +194,7 @@ export const runMain = (args: ReadonlyArray<string> = process.argv): void => {
     process.off("SIGINT", onSigint);
     process.off("SIGTERM", onSigterm);
     Effect.runFork(
-      Effect.logInfo(`Received ${signal}; shutting down`).pipe(
+      Effect.logInfo(`Shutdown signal received (${signal})`).pipe(
         Effect.zipRight(Fiber.interrupt(fiber)),
       ),
     );

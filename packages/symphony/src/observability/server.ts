@@ -1,5 +1,5 @@
 import { createAdaptorServer, type ServerType } from "@hono/node-server";
-import { Context, Data, Effect, Layer, Scope } from "effect";
+import { Context, Data, Effect, Layer, Option, Scope } from "effect";
 import {
   OrchestratorRefresh,
   OrchestratorStateRef,
@@ -10,10 +10,15 @@ import { makeHonoApp } from "./routes.js";
 import type { HttpServerBinding, HttpServerStartOptions } from "./types.js";
 
 const DEFAULT_HOST = "127.0.0.1";
+const DEFAULT_CLOSE_TIMEOUT_MS = 30_000;
 
 export class HttpServerError extends Data.TaggedError("HttpServerError")<{
   readonly reason: string;
-}> {}
+}> {
+  override get message(): string {
+    return `HTTP server failed: ${this.reason}`;
+  }
+}
 
 export interface HttpServer {
   readonly start: (
@@ -26,6 +31,19 @@ export const HttpServer = Context.GenericTag<HttpServer>("symphony/HttpServer");
 const closeServer = (server: ServerType): Effect.Effect<void> =>
   Effect.async<void>((resume) => {
     server.close(() => resume(Effect.void));
+  });
+
+const closeServerGracefully = (server: ServerType): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    yield* Effect.logInfo("Closing HTTP server...");
+    const closed = yield* closeServer(server).pipe(Effect.timeoutOption(DEFAULT_CLOSE_TIMEOUT_MS));
+
+    if (Option.isSome(closed)) {
+      yield* Effect.logInfo("HTTP server closed");
+      return;
+    }
+
+    yield* Effect.logWarning("HTTP server close timed out");
   });
 
 const listen = ({
@@ -69,7 +87,7 @@ export const makeHttpServer = ({
 }): HttpServer => ({
   start: ({ port, host = DEFAULT_HOST }) =>
     Effect.acquireRelease(listen({ host, port, refresh, stateRef }), ({ server }) =>
-      closeServer(server),
+      closeServerGracefully(server),
     ).pipe(Effect.map(({ binding }) => binding)),
 });
 

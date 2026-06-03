@@ -25,6 +25,7 @@ export interface StateSnapshot {
     readonly maxConcurrentAgents: number;
   };
   readonly lastPollAt: string | null;
+  readonly shutdownRequested: boolean;
 }
 
 export interface IssueDetail {
