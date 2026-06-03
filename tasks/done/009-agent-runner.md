@@ -10,8 +10,8 @@ Implement the agent runner that invokes Claude Code as a subprocess for single-t
 
 ## Acceptance Criteria
 
-- [ ] `AgentRunner` Effect service defined
-- [ ] `runTurn(params: TurnParams)` method:
+- [x] `AgentRunner` Effect service defined
+- [x] `runTurn(params: TurnParams)` method:
   ```typescript
   interface TurnParams {
     prompt: string
@@ -26,21 +26,21 @@ Implement the agent runner that invokes Claude Code as a subprocess for single-t
     tokensUsed?: TokenUsage
   }
   ```
-- [ ] Invokes Claude Code:
+- [x] Invokes Claude Code:
   ```bash
   claude -p "<prompt>" --output-format json
   ```
-- [ ] Working directory set to workspace path
-- [ ] Timeout enforcement (kills process if exceeded)
-- [ ] JSON output parsing for structured result
-- [ ] `AgentError` type:
+- [x] Working directory set to workspace path
+- [x] Timeout enforcement (kills process if exceeded)
+- [x] JSON output parsing for structured result
+- [x] `AgentError` type:
   - `AgentError.SpawnFailed`
   - `AgentError.TimedOut`
   - `AgentError.OutputParseFailed`
   - `AgentError.NonZeroExit`
-- [ ] `AgentRunnerLive` layer using `@effect/platform` Command
-- [ ] Proper cleanup on interruption (kill subprocess)
-- [ ] Unit tests with mocked subprocess:
+- [x] `AgentRunnerLive` layer using `@effect/platform` Command
+- [x] Proper cleanup on interruption (kill subprocess)
+- [x] Unit tests with mocked subprocess:
   - Successful execution
   - Timeout handling
   - Non-zero exit
