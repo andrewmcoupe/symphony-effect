@@ -13,6 +13,7 @@ const LinearLabelsPayload = Schema.Struct({
 const LinearRelationsPayload = Schema.Struct({
   nodes: Schema.Array(
     Schema.Struct({
+      type: Schema.String,
       relatedIssue: Schema.Struct({
         id: Schema.String,
         identifier: Schema.String,
@@ -54,6 +55,7 @@ export interface LinearIssueNodePayload {
   readonly labels: { readonly nodes: readonly { readonly name: string }[] };
   readonly relations: {
     readonly nodes: readonly {
+      readonly type: string;
       readonly relatedIssue: {
         readonly id: string;
         readonly identifier: string;
@@ -130,6 +132,7 @@ export const decodeIssueStatesConnection = (
   );
 
 export const normalizeStateName = (state: string): string => state.trim().toLowerCase();
+const normalizeRelationType = (type: string): string => type.trim().toLowerCase();
 
 const parseIsoDate = (value: string, field: string): Effect.Effect<Date, UnknownPayload> =>
   Effect.sync(() => new Date(value)).pipe(
@@ -147,11 +150,13 @@ export const mapLinearIssue = (
   Effect.gen(function* () {
     const createdAt = yield* parseIsoDate(node.createdAt, "createdAt");
     const updatedAt = yield* parseIsoDate(node.updatedAt, "updatedAt");
-    const blockedBy: BlockerRef[] = node.relations.nodes.map((relation) => ({
-      id: relation.relatedIssue.id,
-      identifier: relation.relatedIssue.identifier,
-      state: normalizeStateName(relation.relatedIssue.state.name),
-    }));
+    const blockedBy: BlockerRef[] = node.relations.nodes
+      .filter((relation) => normalizeRelationType(relation.type) === "blocks")
+      .map((relation) => ({
+        id: relation.relatedIssue.id,
+        identifier: relation.relatedIssue.identifier,
+        state: normalizeStateName(relation.relatedIssue.state.name),
+      }));
 
     return {
       id: node.id,

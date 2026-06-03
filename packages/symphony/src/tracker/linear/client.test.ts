@@ -176,6 +176,7 @@ describe("LinearClient", () => {
             relations: {
               nodes: [
                 {
+                  type: "blocks",
                   relatedIssue: {
                     id: "blocker-1",
                     identifier: "ABC-9",
@@ -195,6 +196,35 @@ describe("LinearClient", () => {
     expect(issues[0]?.blockedBy).toEqual([
       { id: "blocker-1", identifier: "ABC-9", state: "in progress" },
     ]);
+  });
+
+  it("ignores non-blocking issue relations", async () => {
+    const fetchMock = vi.fn<LinearFetch>();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        issuesResponse([
+          linearIssue({
+            relations: {
+              nodes: [
+                {
+                  type: "related",
+                  relatedIssue: {
+                    id: "related-1",
+                    identifier: "ABC-7",
+                    state: { name: "Todo" },
+                  },
+                },
+              ],
+            },
+          }),
+        ]),
+      ),
+    );
+
+    const client = makeLinearClientFromConfig(baseConfig, fetchMock);
+    const issues = await Effect.runPromise(client.fetchCandidateIssues());
+
+    expect(issues[0]?.blockedBy).toEqual([]);
   });
 
   it("fetches current issue states by id", async () => {
@@ -218,6 +248,7 @@ describe("LinearClient", () => {
       ]),
     );
     expect(requestBodyAt(fetchMock, 0).query).toContain("state { name }");
+    expect(requestBodyAt(fetchMock, 0).query).toContain("$ids: [ID!]");
     expect(requestBodyAt(fetchMock, 0).variables).toMatchObject({
       ids: ["issue-1", "issue-2"],
       cursor: null,
@@ -254,6 +285,26 @@ describe("LinearClient", () => {
     if (Either.isLeft(result)) {
       expect(result.left).toBeInstanceOf(ApiError);
       expect(result.left.status).toBe(401);
+    }
+  });
+
+  it("includes GraphQL validation messages from non-2xx responses", async () => {
+    const fetchMock = vi.fn<LinearFetch>();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        { errors: [{ message: 'Unknown argument "type" on field "Issue.relations".' }] },
+        { status: 400, statusText: "Bad Request" },
+      ),
+    );
+
+    const client = makeLinearClientFromConfig(baseConfig, fetchMock);
+    const result = await Effect.runPromise(Effect.either(client.fetchCandidateIssues()));
+
+    expect(Either.isLeft(result)).toBe(true);
+    if (Either.isLeft(result)) {
+      expect(result.left).toBeInstanceOf(ApiError);
+      expect(result.left.status).toBe(400);
+      expect(result.left.reason).toContain("Unknown argument");
     }
   });
 

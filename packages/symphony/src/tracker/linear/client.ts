@@ -102,6 +102,21 @@ const readGraphqlData = (
   return Effect.succeed(payload["data"]);
 };
 
+const readGraphqlErrorReason = (payload: unknown): string | undefined => {
+  if (!isRecord(payload)) return undefined;
+
+  const errors = payload["errors"];
+  if (Array.isArray(errors) && errors.length > 0) return formatGraphqlErrors(errors);
+
+  return undefined;
+};
+
+const parseResponseJson = (response: Response): Effect.Effect<unknown, UnknownPayload> =>
+  Effect.tryPromise({
+    try: () => response.json() as Promise<unknown>,
+    catch: (cause) => new UnknownPayload({ reason: formatUnknownCause(cause) }),
+  });
+
 const postGraphql = (
   fetchImpl: LinearFetch,
   endpoint: string,
@@ -122,20 +137,18 @@ const postGraphql = (
       catch: (cause) => new RequestFailed({ endpoint, reason: formatUnknownCause(cause) }),
     });
 
+    const payload = yield* parseResponseJson(response);
+
     if (!response.ok) {
+      const graphqlReason = readGraphqlErrorReason(payload);
       return yield* Effect.fail(
         new ApiError({
           endpoint,
           status: response.status,
-          reason: response.statusText || `HTTP ${response.status}`,
+          reason: graphqlReason ?? response.statusText ?? `HTTP ${response.status}`,
         }),
       );
     }
-
-    const payload = yield* Effect.tryPromise({
-      try: () => response.json() as Promise<unknown>,
-      catch: (cause) => new UnknownPayload({ reason: formatUnknownCause(cause) }),
-    });
 
     return yield* readGraphqlData(endpoint, payload);
   });

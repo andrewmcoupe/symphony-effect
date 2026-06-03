@@ -20,8 +20,9 @@ query IssuesByStates($projectSlug: String!, $states: [String!]!, $cursor: String
       branchName
       url
       labels { nodes { name } }
-      relations(type: "blocks") {
+      relations {
         nodes {
+          type
           relatedIssue { id identifier state { name } }
         }
       }
@@ -33,7 +34,7 @@ query IssuesByStates($projectSlug: String!, $states: [String!]!, $cursor: String
 `;
 
 export const ISSUE_STATES_BY_IDS_QUERY = `
-query IssueStatesByIds($ids: [String!]!, $cursor: String) {
+query IssueStatesByIds($ids: [ID!], $cursor: String) {
   issues(
     filter: { id: { in: $ids } }
     first: 50

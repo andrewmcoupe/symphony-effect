@@ -20,21 +20,26 @@ export const makeMainLive = ({
   readonly loaded: LoadedConfig;
   readonly workflowPath: string;
 }) => {
-  const base = Layer.mergeAll(NodeFileSystem.layer, NodeCommandExecutor.layer).pipe(
-    Layer.provideMerge(ConfigLoader.Default),
-    Layer.provideMerge(PromptRendererLive),
-    Layer.provideMerge(OrchestratorStateRefLive),
-    Layer.provideMerge(OrchestratorRefreshLive),
+  const platform = NodeCommandExecutor.layer.pipe(
+    Layer.provide(NodeFileSystem.layer),
+    Layer.provideMerge(NodeFileSystem.layer),
   );
 
-  return base.pipe(
-    Layer.provideMerge(makeLinearClientLive(workflowPath)),
-    Layer.provideMerge(makeWorkspaceManagerLive(loaded.config.workspace.root)),
-    Layer.provideMerge(HookExecutorLive),
-    Layer.provideMerge(AgentRunnerLive),
-    Layer.provideMerge(makeConcurrencyControllerLive(loaded.config.agent)),
-    Layer.provideMerge(ReconcilerLive),
-    Layer.provideMerge(makeOrchestratorLive({ workflowPath })),
-    Layer.provideMerge(HttpServerLive),
+  const config = ConfigLoader.Default.pipe(Layer.provideMerge(platform));
+  const renderer = PromptRendererLive.pipe(Layer.provideMerge(config));
+  const state = OrchestratorStateRefLive.pipe(Layer.provideMerge(renderer));
+  const refresh = OrchestratorRefreshLive.pipe(Layer.provideMerge(state));
+  const tracker = makeLinearClientLive(workflowPath).pipe(Layer.provideMerge(refresh));
+  const workspace = makeWorkspaceManagerLive(loaded.config.workspace.root).pipe(
+    Layer.provideMerge(tracker),
   );
+  const hooks = HookExecutorLive.pipe(Layer.provideMerge(workspace));
+  const agent = AgentRunnerLive.pipe(Layer.provideMerge(hooks));
+  const concurrency = makeConcurrencyControllerLive(loaded.config.agent).pipe(
+    Layer.provideMerge(agent),
+  );
+  const reconciler = ReconcilerLive.pipe(Layer.provideMerge(concurrency));
+  const orchestrator = makeOrchestratorLive({ workflowPath }).pipe(Layer.provideMerge(reconciler));
+
+  return HttpServerLive.pipe(Layer.provideMerge(orchestrator));
 };
