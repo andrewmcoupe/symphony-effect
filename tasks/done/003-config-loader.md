@@ -9,20 +9,20 @@ Implement the Effect service that loads and parses WORKFLOW.md files, extracting
 
 ## Acceptance Criteria
 
-- [ ] `ConfigLoader` Effect service defined
-- [ ] `load(path: string)` method that:
+- [x] `ConfigLoader` Effect service defined
+- [x] `load(path: string)` method that:
   - Reads file from filesystem
   - Extracts YAML front matter using `gray-matter`
   - Parses YAML using `yaml` package
   - Validates against `WorkflowConfig` schema
   - Returns `{ config: WorkflowConfig, promptTemplate: string }`
-- [ ] Typed errors:
+- [x] Typed errors:
   - `ConfigError.FileNotFound`
   - `ConfigError.ParseFailed` (YAML syntax error)
   - `ConfigError.ValidationFailed` (schema validation)
   - `ConfigError.MissingEnvVar`
-- [ ] `ConfigLoaderLive` layer using `@effect/platform` FileSystem
-- [ ] Unit tests with mock filesystem:
+- [x] `ConfigLoaderLive` layer using `@effect/platform` FileSystem
+- [x] Unit tests with mock filesystem:
   - Successful load
   - File not found
   - Invalid YAML
