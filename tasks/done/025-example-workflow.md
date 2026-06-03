@@ -8,21 +8,21 @@ Create a well-documented example WORKFLOW.md file that demonstrates all configur
 
 ## Acceptance Criteria
 
-- [ ] `examples/WORKFLOW.md` file created
-- [ ] All config sections documented with comments
-- [ ] Realistic hook scripts:
+- [x] `examples/WORKFLOW.md` file created
+- [x] All config sections documented with comments
+- [x] Realistic hook scripts:
   - `after_create`: git clone + dependency install
   - `before_run`: fetch + checkout branch
   - `after_run`: commit + push changes
   - `before_remove`: (optional cleanup)
-- [ ] Comprehensive prompt template demonstrating:
+- [x] Comprehensive prompt template demonstrating:
   - All issue variables
   - Conditional for retry attempts
   - Label handling
   - Blocker information
-- [ ] `examples/WORKFLOW.minimal.md` - bare minimum config
-- [ ] `examples/WORKFLOW.local.md` - for local testing without Linear
-- [ ] README in examples folder explaining each variant
+- [x] `examples/WORKFLOW.minimal.md` - bare minimum config
+- [x] `examples/WORKFLOW.local.md` - for local testing without Linear
+- [x] README in examples folder explaining each variant
 
 ## Technical Notes
 
