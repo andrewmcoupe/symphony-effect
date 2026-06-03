@@ -415,7 +415,7 @@ describe("Orchestrator", () => {
     expect(output.loadCalls).toBe(2);
   });
 
-  it("releases issues when workers reach max turns", async () => {
+  it("queues continuation when workers reach max turns", async () => {
     const output = await runWithOrchestrator(({ concurrency, stateRef }) =>
       Effect.gen(function* () {
         const orchestrator = makeOrchestrator({
@@ -440,7 +440,20 @@ describe("Orchestrator", () => {
     );
 
     expect(output.running).toEqual([]);
-    expect(output.retryQueue).toEqual([]);
-    expect(output.claims).toEqual([]);
+    expect(output.retryQueue).toHaveLength(1);
+    expect(output.retryQueue[0]).toMatchObject({
+      issueId: "issue-1",
+      identifier: "ABC-1",
+      attempt: 0,
+      error: "continuation",
+    });
+    expect(output.claims).toHaveLength(1);
+    expect(output.claims[0]).toMatchObject({
+      issueId: "issue-1",
+      identifier: "ABC-1",
+      _tag: "RetryQueued",
+      attempt: 0,
+      error: "continuation",
+    });
   });
 });

@@ -8,44 +8,44 @@ Set up comprehensive integration tests for the full orchestration flow.
 
 ## Acceptance Criteria
 
-- [ ] Integration test harness with:
+- [x] Integration test harness with:
   - Mock Linear API (using msw or similar)
   - Mock Claude Code subprocess
   - Temporary workspace directories
   - Test WORKFLOW.md files
-- [ ] **Scenario: Happy Path**
+- [x] **Scenario: Happy Path**
   - Issue in "Todo" state
   - Agent completes successfully
   - Issue transitions tracked
   - Workspace created and populated
-- [ ] **Scenario: Retry on Failure**
+- [x] **Scenario: Retry on Failure**
   - Agent fails on first attempt
   - Retry scheduled with backoff
   - Second attempt succeeds
-- [ ] **Scenario: Max Turns Reached**
+- [x] **Scenario: Max Turns Reached**
   - Agent runs to max_turns limit
   - Session ends cleanly
   - Continuation scheduled
-- [ ] **Scenario: Stall Detection**
+- [x] **Scenario: Stall Detection**
   - Agent becomes unresponsive
   - Stall timeout triggers
   - Worker interrupted, retry scheduled
-- [ ] **Scenario: Terminal State Cleanup**
+- [x] **Scenario: Terminal State Cleanup**
   - Running issue transitions to "Done"
   - Worker stopped
   - Workspace removed
-- [ ] **Scenario: Concurrency Limits**
+- [x] **Scenario: Concurrency Limits**
   - Multiple issues dispatched
   - Global limit respected
   - Per-state limits respected
-- [ ] **Scenario: Blocker Handling**
+- [x] **Scenario: Blocker Handling**
   - Issue with non-terminal blocker
   - Not dispatched while blocked
   - Dispatched after blocker resolves
-- [ ] **Scenario: Config Reload**
+- [x] **Scenario: Config Reload**
   - WORKFLOW.md changes mid-run
   - New config picked up on next tick
-- [ ] Test utilities:
+- [x] Test utilities:
   - `createMockTracker(issues: Issue[])`
   - `createMockAgent(responses: TurnResult[])`
   - `createTempWorkspace()`

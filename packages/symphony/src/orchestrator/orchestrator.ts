@@ -179,6 +179,7 @@ export const makeOrchestrator = ({
       const handleResult = (result: WorkerResult): Effect.Effect<void> => {
         switch (result._tag) {
           case "Completed":
+          case "MaxTurnsReached":
             return retry.scheduleContinuation(issue.id, issue.identifier);
           case "Failed":
             return retry.scheduleRetry(
@@ -188,7 +189,6 @@ export const makeOrchestrator = ({
               result.error.message,
             );
           case "IssueNoLongerActive":
-          case "MaxTurnsReached":
             return stateRef.releaseIssue(issue.id);
         }
       };
