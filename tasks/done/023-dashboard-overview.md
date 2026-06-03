@@ -9,33 +9,33 @@ Build the main dashboard overview showing running agents, retry queue, and token
 
 ## Acceptance Criteria
 
-- [ ] Overview route at `/`
-- [ ] **Stats Cards Row:**
+- [x] Overview route at `/`
+- [x] **Stats Cards Row:**
   - Running agents count (with max)
   - Retry queue size
   - Total tokens used
   - Runtime seconds
-- [ ] **Running Agents Table:**
+- [x] **Running Agents Table:**
   - Columns: Identifier, State, Turn Count, Started, Elapsed
   - Identifier links to issue detail page
   - State shown as colored badge
   - Elapsed time updates live (calculated from startedAt)
   - Empty state: "No agents running"
-- [ ] **Retry Queue Table:**
+- [x] **Retry Queue Table:**
   - Columns: Identifier, Attempt, Due In, Error
   - "Due In" shows countdown (e.g., "2m 30s")
   - Error shown truncated with tooltip for full text
   - Empty state: "No retries queued"
-- [ ] **Refresh Button:**
+- [x] **Refresh Button:**
   - Triggers `POST /api/v1/refresh`
   - Shows loading state
   - Refetches state after success
-- [ ] **Last Poll Timestamp:**
+- [x] **Last Poll Timestamp:**
   - Shows when last poll occurred
   - Format: relative time ("30 seconds ago")
-- [ ] Responsive layout (works on mobile)
-- [ ] Loading skeleton while data fetches
-- [ ] Error state with retry button
+- [x] Responsive layout (works on mobile)
+- [x] Loading skeleton while data fetches
+- [x] Error state with retry button
 
 ## Technical Notes
 
