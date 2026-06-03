@@ -53,6 +53,7 @@ const loadedConfig = (intervalMs = 50): LoadedConfig => ({
     agent: {
       max_concurrent_agents: 1,
       max_turns: 2,
+      stall_timeout_ms: 300_000,
       max_retry_backoff_ms: 300_000,
     },
   },
@@ -97,6 +98,7 @@ const runWithOrchestrator = <A, E>(
         makeConcurrencyControllerLive({
           max_concurrent_agents: 1,
           max_turns: 2,
+          stall_timeout_ms: 300_000,
           max_retry_backoff_ms: 300_000,
         }),
       ),

@@ -67,6 +67,7 @@ export const markRunningMutation =
       startedAt: issue.startedAt,
       turnCount: issue.turnCount,
       lastActivityAt: issue.lastActivityAt,
+      ...(issue.attempt === undefined ? {} : { attempt: issue.attempt }),
       ...(issue.trackerState === undefined ? {} : { trackerState: issue.trackerState }),
     });
     return {
@@ -141,6 +142,7 @@ export const updateActivityMutation =
       startedAt: updated.startedAt,
       turnCount: updated.turnCount,
       lastActivityAt: updated.lastActivityAt,
+      ...(updated.attempt === undefined ? {} : { attempt: updated.attempt }),
       ...(updated.trackerState === undefined ? {} : { trackerState: updated.trackerState }),
     });
     return next;
@@ -166,7 +168,29 @@ export const recordTurnMutation =
       startedAt: updated.startedAt,
       turnCount: updated.turnCount,
       lastActivityAt: updated.lastActivityAt,
+      ...(updated.attempt === undefined ? {} : { attempt: updated.attempt }),
       ...(updated.trackerState === undefined ? {} : { trackerState: updated.trackerState }),
+    });
+    return next;
+  };
+
+export const updateTrackerStateMutation =
+  (issueId: string, trackerState: string) =>
+  (state: OrchestratorState): OrchestratorState => {
+    const running = state.running.get(issueId);
+    if (running === undefined) return state;
+
+    const next = copyState(state);
+    const updated: RunningIssue = { ...running, trackerState };
+    next.running.set(issueId, updated);
+    next.claims?.set(issueId, {
+      _tag: "Running",
+      fiber: updated.fiber,
+      startedAt: updated.startedAt,
+      turnCount: updated.turnCount,
+      lastActivityAt: updated.lastActivityAt,
+      ...(updated.attempt === undefined ? {} : { attempt: updated.attempt }),
+      trackerState,
     });
     return next;
   };

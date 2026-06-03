@@ -7,7 +7,7 @@ import type { Issue } from "../tracker/index.js";
 import type { HookExecutor, WorkspaceManager } from "../workspace/index.js";
 import { ConcurrencyController } from "./concurrency.js";
 import { makeDispatchDecider } from "./dispatch.js";
-import { Reconciler } from "./reconciliation.js";
+import { makeReconcilerConfigFromLoadedConfig, Reconciler } from "./reconciliation.js";
 import { makeRetryScheduler } from "./retry.js";
 import { OrchestratorStateRef, type RetryEntry } from "./state/index.js";
 import type { WorkerError as StateWorkerError } from "./state/types.js";
@@ -200,6 +200,7 @@ export const makeOrchestrator = ({
         fiber as Fiber.RuntimeFiber<void, StateWorkerError>,
         issue.identifier,
         issue.state,
+        attempt,
       );
       yield* Deferred.succeed(started, undefined);
     });
@@ -259,7 +260,11 @@ export const makeOrchestrator = ({
   const pollOnce = (): Effect.Effect<PollTickResult> =>
     Effect.gen(function* () {
       const loadedResult = yield* loader.load(workflowPath).pipe(Effect.either);
-      yield* reconciler.reconcile();
+      yield* reconciler.reconcile(
+        loadedResult._tag === "Right"
+          ? makeReconcilerConfigFromLoadedConfig(loadedResult.right)
+          : undefined,
+      );
 
       if (loadedResult._tag === "Left") {
         yield* Effect.logError(

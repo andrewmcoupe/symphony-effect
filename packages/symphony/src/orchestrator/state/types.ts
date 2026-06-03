@@ -14,6 +14,7 @@ export type IssueClaimState =
       readonly startedAt: number;
       readonly turnCount: number;
       readonly lastActivityAt: number;
+      readonly attempt?: number;
       readonly trackerState?: string;
     }
   | {
@@ -45,6 +46,7 @@ export interface RunningIssue {
   readonly startedAt: number;
   readonly turnCount: number;
   readonly lastActivityAt: number;
+  readonly attempt?: number;
   readonly trackerState?: string;
 }
 

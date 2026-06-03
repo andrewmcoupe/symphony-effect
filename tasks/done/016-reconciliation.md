@@ -13,11 +13,11 @@ Implement stall detection and tracker state refresh for running issues.
 
 ## Acceptance Criteria
 
-- [ ] `Reconciler` Effect service defined
-- [ ] `reconcile()` method that runs both parts:
+- [x] `Reconciler` Effect service defined
+- [x] `reconcile()` method that runs both parts:
   - Part A: Stall detection
   - Part B: State refresh
-- [ ] **Stall Detection:**
+- [x] **Stall Detection:**
   - For each running issue: check `lastActivityAt`
   - Calculate elapsed: `now - lastActivityAt`
   - If `elapsed > stall_timeout_ms`:
@@ -25,15 +25,15 @@ Implement stall detection and tracker state refresh for running issues.
     - Schedule retry
     - Log stall event
   - If `stall_timeout_ms <= 0`: skip stall detection
-- [ ] **State Refresh:**
+- [x] **State Refresh:**
   - Fetch current states for all running issue IDs
   - For each running issue:
     - If state is terminal: stop worker, remove workspace
     - If state is still active: update cached issue state
     - If state unknown (issue deleted?): stop worker, no cleanup
-- [ ] State refresh failure: keep workers running, retry next tick
-- [ ] `ReconcilerLive` layer
-- [ ] Unit tests:
+- [x] State refresh failure: keep workers running, retry next tick
+- [x] `ReconcilerLive` layer
+- [x] Unit tests:
   - Stall detection triggering
   - Stall detection disabled (timeout <= 0)
   - Terminal state handling

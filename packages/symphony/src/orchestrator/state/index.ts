@@ -11,6 +11,7 @@ export {
   releaseIssueMutation,
   takeDueRetriesMutation,
   updateActivityMutation,
+  updateTrackerStateMutation,
 } from "./mutations.js";
 export {
   makeOrchestratorStateRef,

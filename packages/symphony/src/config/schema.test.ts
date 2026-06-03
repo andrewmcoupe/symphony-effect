@@ -84,6 +84,7 @@ describe("decodeWorkflowConfig", () => {
     expect(config.hooks.timeout_ms).toBe(60_000);
     expect(config.agent.max_concurrent_agents).toBe(10);
     expect(config.agent.max_turns).toBe(20);
+    expect(config.agent.stall_timeout_ms).toBe(300_000);
     expect(config.agent.max_retry_backoff_ms).toBe(300_000);
   });
 
@@ -101,6 +102,7 @@ describe("decodeWorkflowConfig", () => {
     expect(config.polling.interval_ms).toBe(5_000);
     expect(config.agent.max_turns).toBe(3);
     expect(config.agent.max_concurrent_agents).toBe(10);
+    expect(config.agent.stall_timeout_ms).toBe(300_000);
   });
 
   it("resolves a $VAR reference in api_key", () => {

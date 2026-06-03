@@ -9,9 +9,11 @@ export {
   type PollTickResult,
 } from "./orchestrator.js";
 export {
+  makeReconcilerConfigFromLoadedConfig,
   makeReconciler,
   Reconciler,
   ReconcilerLive,
+  type ReconcilerConfigValue,
   type Reconciler as ReconcilerService,
 } from "./reconciliation.js";
 export {

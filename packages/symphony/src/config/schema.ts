@@ -124,6 +124,9 @@ const HooksConfig = Schema.Struct({
 const AgentConfig = Schema.Struct({
   max_concurrent_agents: Schema.optionalWith(PositiveInt, { default: () => 10 }),
   max_turns: Schema.optionalWith(PositiveInt, { default: () => 20 }),
+  stall_timeout_ms: Schema.optionalWith(Schema.Number.pipe(Schema.int()), {
+    default: () => 300_000,
+  }),
   max_retry_backoff_ms: Schema.optionalWith(PositiveInt, { default: () => 300_000 }),
   max_concurrent_agents_by_state: Schema.optional(
     Schema.Record({ key: Schema.String, value: PositiveInt }),
@@ -140,7 +143,12 @@ export const WorkflowConfig = Schema.Struct({
   workspace: WorkspaceConfig,
   hooks: Schema.optionalWith(HooksConfig, { default: () => ({ timeout_ms: 60_000 }) }),
   agent: Schema.optionalWith(AgentConfig, {
-    default: () => ({ max_concurrent_agents: 10, max_turns: 20, max_retry_backoff_ms: 300_000 }),
+    default: () => ({
+      max_concurrent_agents: 10,
+      max_turns: 20,
+      stall_timeout_ms: 300_000,
+      max_retry_backoff_ms: 300_000,
+    }),
   }),
 });
 

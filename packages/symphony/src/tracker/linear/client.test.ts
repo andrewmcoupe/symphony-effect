@@ -22,6 +22,7 @@ const baseConfig: WorkflowConfig = {
   agent: {
     max_concurrent_agents: 10,
     max_turns: 20,
+    stall_timeout_ms: 300_000,
     max_retry_backoff_ms: 300_000,
   },
 };
