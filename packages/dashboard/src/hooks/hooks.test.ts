@@ -8,6 +8,7 @@ import {
   issueDetailQueryKey,
   orchestratorStateQueryKey,
   useIssueDetail,
+  useOrchestratorEvents,
   useOrchestratorState,
   useRefreshMutation,
 } from "@/hooks";
@@ -84,10 +85,55 @@ const makeWrapper =
   ({ children }: PropsWithChildren) =>
     createElement(QueryClientProvider, { client: queryClient }, children);
 
+class MockEventSource {
+  static readonly CLOSED = 2;
+  static readonly CONNECTING = 0;
+  static instances: MockEventSource[] = [];
+  static readonly OPEN = 1;
+
+  readonly listeners = new Map<string, Set<EventListener>>();
+  readonly close = vi.fn(() => {
+    this.readyState = EventSource.CLOSED;
+  });
+  onmessage: ((event: MessageEvent) => void) | null = null;
+  onopen: ((event: Event) => void) | null = null;
+  readyState: number = EventSource.CONNECTING;
+
+  constructor(readonly url: string) {
+    MockEventSource.instances.push(this);
+  }
+
+  addEventListener(type: string, listener: EventListener) {
+    const listeners = this.listeners.get(type) ?? new Set<EventListener>();
+    listeners.add(listener);
+    this.listeners.set(type, listeners);
+  }
+
+  dispatchDomainEvent(type: string, data: string) {
+    for (const listener of this.listeners.get(type) ?? []) {
+      listener(new MessageEvent(type, { data }));
+    }
+  }
+
+  dispatchMessage(data: string) {
+    this.onmessage?.(new MessageEvent("message", { data }));
+  }
+
+  dispatchOpen() {
+    this.readyState = EventSource.OPEN;
+    this.onopen?.(new Event("open"));
+  }
+
+  removeEventListener(type: string, listener: EventListener) {
+    this.listeners.get(type)?.delete(listener);
+  }
+}
+
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  MockEventSource.instances = [];
 });
 
 describe("dashboard API hooks", () => {
@@ -204,5 +250,63 @@ describe("dashboard API hooks", () => {
     await waitFor(() => expect(result.current.isError).toBe(true));
 
     expect(queryClient.getQueryData(orchestratorStateQueryKey)).toEqual(stateSnapshot);
+  });
+
+  it("invalidates orchestrator queries when a named SSE event arrives", async () => {
+    vi.stubGlobal("EventSource", MockEventSource);
+    const queryClient = makeQueryClient();
+    const invalidateQueries = vi.spyOn(queryClient, "invalidateQueries");
+
+    renderHook(() => useOrchestratorEvents(), {
+      wrapper: makeWrapper(queryClient),
+    });
+
+    await waitFor(() => expect(MockEventSource.instances).toHaveLength(1));
+
+    expect(MockEventSource.instances[0]?.url).toBe("/api/v1/events");
+
+    act(() => {
+      MockEventSource.instances[0]?.dispatchDomainEvent("TurnRecorded", '{"identifier":"ABC-1"}');
+      MockEventSource.instances[0]?.dispatchDomainEvent(
+        "IssueStateChanged",
+        '{"identifier":"ABC-1"}',
+      );
+    });
+
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["orchestrator"] });
+    expect(invalidateQueries).toHaveBeenCalledTimes(2);
+  });
+
+  it("invalidates orchestrator queries when SSE connects or reconnects", async () => {
+    vi.stubGlobal("EventSource", MockEventSource);
+    const queryClient = makeQueryClient();
+    const invalidateQueries = vi.spyOn(queryClient, "invalidateQueries");
+
+    renderHook(() => useOrchestratorEvents(), {
+      wrapper: makeWrapper(queryClient),
+    });
+
+    await waitFor(() => expect(MockEventSource.instances).toHaveLength(1));
+
+    act(() => {
+      MockEventSource.instances[0]?.dispatchOpen();
+    });
+
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["orchestrator"] });
+  });
+
+  it("closes the SSE connection on unmount", async () => {
+    vi.stubGlobal("EventSource", MockEventSource);
+    const queryClient = makeQueryClient();
+
+    const { unmount } = renderHook(() => useOrchestratorEvents(), {
+      wrapper: makeWrapper(queryClient),
+    });
+
+    await waitFor(() => expect(MockEventSource.instances).toHaveLength(1));
+
+    unmount();
+
+    expect(MockEventSource.instances[0]?.close).toHaveBeenCalledOnce();
   });
 });

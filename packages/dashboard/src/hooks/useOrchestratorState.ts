@@ -9,5 +9,6 @@ export const useOrchestratorState = () =>
   useQuery<StateSnapshot, Error>({
     queryKey: orchestratorStateQueryKey,
     queryFn: fetchState,
-    refetchInterval: 5_000,
+    refetchInterval: 30_000,
+    refetchOnReconnect: true,
   });

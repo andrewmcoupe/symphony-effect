@@ -1,10 +1,14 @@
 import { Link, Outlet, createRootRoute } from "@tanstack/react-router";
 
+import { useOrchestratorEvents } from "@/hooks";
+
 export const Route = createRootRoute({
   component: RootLayout,
 });
 
 function RootLayout() {
+  useOrchestratorEvents();
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b bg-card">
