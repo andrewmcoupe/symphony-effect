@@ -363,7 +363,33 @@ interface OrchestratorState {
 GET  /api/v1/state              # Full orchestrator snapshot
 GET  /api/v1/issues/:identifier # Issue-specific details
 POST /api/v1/refresh            # Trigger immediate poll
+GET  /api/v1/events             # Server-Sent Events stream of domain events
 ```
+
+**Real-time Events (SSE):**
+
+The orchestrator broadcasts **Domain Events** — semantic notifications that
+observable state changed — so the dashboard can update near-real-time instead of
+waiting for the next poll. See [ADR 0001](docs/adr/0001-sse-domain-event-pubsub.md)
+and the [CONTEXT glossary](CONTEXT.md).
+
+- **Emission:** an Effect `PubSub<DomainEvent>` co-located with the orchestrator
+  state ref. Mutation methods publish as a side effect (no call-site changes).
+  The PubSub uses the **sliding** strategy, so a slow dashboard never blocks the
+  orchestrator.
+- **Event set:**
+  - `TurnRecorded` — a Turn completed and its agent output was recorded.
+  - `IssueStateChanged` — an Issue's lifecycle state changed (claimed, started,
+    retry-queued, retry-taken, released, tracker-state updated).
+  - Token-total increments, activity touches, and poll timestamps are
+    intentionally **not** events (noise for observers).
+- **Transport:** a single global `GET /api/v1/events` SSE endpoint (gated on
+  `--port`). Each connection scopes one `PubSub.subscribe`; a forked fiber pumps
+  events to `streamSSE` with a ~20s heartbeat, torn down on disconnect.
+- **Events are thin signals** (`{ type, identifier }`, no state payload). The
+  client invalidates the TanStack Query cache, which refetches through the
+  existing REST projection — keeping one source of truth. This satisfies the
+  TanStack Query non-negotiable: SSE only invalidates, never writes the cache.
 
 ### 7. Git Provider (Pull Requests)
 
@@ -439,7 +465,8 @@ interface StateSnapshot {
 
 ### Features
 
-- Real-time updates via TanStack Query polling (5s interval)
+- Real-time updates via SSE (`GET /api/v1/events`) driving TanStack Query cache
+  invalidation, with a slow (~30s) polling safety net + `refetchOnReconnect`
 - Running agents list with status indicators
 - Retry queue with countdown timers
 - Token usage totals
@@ -593,6 +620,11 @@ type SymphonyError =
 - [ ] Error recovery hardening
 - [ ] Documentation
 - [ ] Example WORKFLOW.md
+
+### Phase 11: Real-time Dashboard (SSE)
+- [ ] Domain event PubSub in the orchestrator state ref (sliding) — task 031
+- [ ] `GET /api/v1/events` SSE endpoint with heartbeat — task 032
+- [ ] Dashboard SSE client + cache invalidation + safety-net poll — task 033
 
 ---
 
