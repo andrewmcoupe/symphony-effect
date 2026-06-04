@@ -130,6 +130,7 @@ hooks:
 # Agent Configuration
 # -----------------------------------------------------------------------------
 agent:
+  model: claude-sonnet-4-6
   max_concurrent_agents: 5                  # Max parallel agent sessions.
   max_turns: 15                             # Max Claude Code turns per session.
   stall_timeout_ms: 300000                  # Abort if the agent stalls for 5 minutes.
