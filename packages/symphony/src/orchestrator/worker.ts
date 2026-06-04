@@ -328,7 +328,7 @@ export const makeWorkerConfigFromLoadedConfig = (
   activeStates: loaded.config.tracker.active_states,
   hooks: loaded.config.hooks,
   maxTurns: loaded.config.agent.max_turns,
-  agentTimeoutMs: options.agentTimeoutMs ?? loaded.config.hooks.timeout_ms,
+  agentTimeoutMs: options.agentTimeoutMs ?? loaded.config.agent.stall_timeout_ms,
 });
 
 export const WorkerLive: Layer.Layer<

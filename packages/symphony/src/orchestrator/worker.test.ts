@@ -2,7 +2,7 @@ import { Effect, Fiber, Option } from "effect";
 import { describe, expect, it } from "vitest";
 import type { TurnParams, TurnResult } from "../agent/index.js";
 import { NonZeroExit } from "../agent/index.js";
-import type { PromptVariables, RenderErrorType } from "../config/index.js";
+import type { LoadedConfig, PromptVariables, RenderErrorType } from "../config/index.js";
 import type { TrackerClient } from "../tracker/index.js";
 import { RequestFailed } from "../tracker/index.js";
 import { CreationFailed, HookNonZeroExit } from "../workspace/index.js";
@@ -16,6 +16,7 @@ import type { WorkerError as StateWorkerError } from "./state/types.js";
 import {
   AgentFailed,
   HookFailed,
+  makeWorkerConfigFromLoadedConfig,
   makeWorker,
   type WorkerConfigValue,
   type WorkerError,
@@ -176,6 +177,33 @@ const expectFailedWith = <T extends WorkerError>(
 };
 
 describe("Worker", () => {
+  it("uses agent stall_timeout_ms for agent turn timeout", () => {
+    const loaded: LoadedConfig = {
+      config: {
+        tracker: {
+          kind: "linear",
+          endpoint: "https://linear.example/graphql",
+          api_key: "token",
+          project_slug: "project",
+          active_states: ["Todo"],
+          terminal_states: ["Done"],
+        },
+        polling: { interval_ms: 30_000 },
+        workspace: { root: "/tmp/symphony" },
+        hooks: { timeout_ms: 120_000 },
+        agent: {
+          max_concurrent_agents: 1,
+          max_turns: 3,
+          stall_timeout_ms: 300_000,
+          max_retry_backoff_ms: 300_000,
+        },
+      },
+      promptTemplate: "Work on {{ issue.identifier }}",
+    };
+
+    expect(makeWorkerConfigFromLoadedConfig(loaded).agentTimeoutMs).toBe(300_000);
+  });
+
   it("prepares the workspace, runs hooks, executes a turn, and records activity", async () => {
     const output = await runWithWorker({
       trackerStates: ["Todo"],
