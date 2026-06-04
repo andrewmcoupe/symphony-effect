@@ -90,6 +90,38 @@ describe("Integration: Pull Request on Completion", () => {
     });
   });
 
+  it("opens a pull request when the agent moves the issue out of active states", async () => {
+    const issue = createMockIssue({ title: "Ready for review" });
+    const agent = createMockAgent([
+      () => {
+        harness?.tracker.updateIssue(issue.id, { state: "In Review" });
+        return successfulTurn("ready for review");
+      },
+    ]);
+    const gitProvider = createMockGitProvider();
+    harness = await createIntegrationHarness({
+      issues: [issue],
+      agent,
+      gitProvider,
+      config: { git: {} },
+    });
+
+    await harness.pollOnce();
+    const finalState = await harness.waitForState(
+      (snapshot) => snapshot.running.length === 0 && snapshot.claims.length === 0,
+    );
+
+    expect(agent.calls).toHaveLength(1);
+    expect(gitProvider.calls.ensurePullRequest).toHaveLength(1);
+    expect(gitProvider.calls.ensurePullRequest[0]).toMatchObject({
+      issue,
+      headBranch: "symphony/TEST-1",
+      baseBranch: "main",
+      title: "TEST-1: Ready for review",
+    });
+    expect(finalState.retryQueue).toEqual([]);
+  });
+
   it("swallows GitProviderError and still schedules continuation", async () => {
     const now = 1_000;
     const issue = createMockIssue();

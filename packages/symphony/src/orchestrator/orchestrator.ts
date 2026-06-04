@@ -236,7 +236,9 @@ export const makeOrchestrator = ({
               result.error.message,
             );
           case "IssueNoLongerActive":
-            return stateRef.releaseIssue(issue.id);
+            return result.turnCount > 0
+              ? ensurePullRequest().pipe(Effect.zipRight(stateRef.releaseIssue(issue.id)))
+              : stateRef.releaseIssue(issue.id);
         }
       };
 
