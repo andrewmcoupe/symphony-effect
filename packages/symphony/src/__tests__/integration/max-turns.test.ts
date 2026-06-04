@@ -15,18 +15,18 @@ describe("Integration: Max Turns Reached", () => {
   it("ends the worker cleanly and schedules continuation", async () => {
     let now = 5_000;
     const issue = createMockIssue({ state: "Todo" });
-    const agent = createMockAgent([successfulTurn("one"), successfulTurn("two")]);
+    const agent = createMockAgent([successfulTurn("one")]);
     harness = await createIntegrationHarness({
       issues: [issue],
       agent,
-      config: { agent: { max_turns: 2 } },
+      config: { agent: { max_turns: 1 } },
       now: () => now,
     });
 
     await harness.pollOnce();
     const finalState = await harness.waitForState((snapshot) => snapshot.retryQueue.length === 1);
 
-    expect(agent.calls).toHaveLength(2);
+    expect(agent.calls).toHaveLength(1);
     expect(finalState.running).toEqual([]);
     expect(finalState.retryQueue).toEqual([
       {

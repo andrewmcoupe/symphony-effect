@@ -24,7 +24,7 @@ describe("Integration: Pull Request on Completion", () => {
       agent,
       gitProvider,
       config: {
-        agent: { max_turns: 1 },
+        agent: { max_turns: 3 },
         git: {
           branch_template: "work/{{ issue.identifier }}",
           base_branch: "develop",
@@ -39,6 +39,7 @@ describe("Integration: Pull Request on Completion", () => {
     await harness.pollOnce();
     const first = await harness.waitForState((snapshot) => snapshot.retryQueue.length === 1);
 
+    expect(agent.calls).toHaveLength(1);
     expect(gitProvider.calls.ensurePullRequest).toHaveLength(1);
     expect(gitProvider.calls.ensurePullRequest[0]).toMatchObject({
       issue,

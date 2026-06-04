@@ -176,25 +176,22 @@ const expectFailedWith = <T extends WorkerError>(
 };
 
 describe("Worker", () => {
-  it("prepares the workspace, runs hooks, executes turns, and records activity", async () => {
+  it("prepares the workspace, runs hooks, executes a turn, and records activity", async () => {
     const output = await runWithWorker({
-      trackerStates: ["Todo", "Done"],
-      turnResults: [successTurn("first"), successTurn("second")],
+      trackerStates: ["Todo"],
+      turnResults: [successTurn("first")],
     });
 
-    expect(output.result).toEqual({ _tag: "IssueNoLongerActive", turnCount: 2 });
+    expect(output.result).toEqual({ _tag: "Completed", turnCount: 1 });
     expect(output.workspaces).toEqual(["ABC-1"]);
     expect(output.hookCalls).toEqual(["after_create", "before_run", "after_run"]);
-    expect(output.prompts).toEqual(["prompt:ABC-1:first", "prompt:ABC-1:first"]);
-    expect(output.agentCalls.map((call) => call.resumeSessionId)).toEqual([
-      undefined,
-      "session-first",
-    ]);
-    expect(output.snapshot.running[0]).toMatchObject({ issueId: "issue-1", turnCount: 2 });
+    expect(output.prompts).toEqual(["prompt:ABC-1:first"]);
+    expect(output.agentCalls.map((call) => call.resumeSessionId)).toEqual([undefined]);
+    expect(output.snapshot.running[0]).toMatchObject({ issueId: "issue-1", turnCount: 1 });
     expect(output.snapshot.tokenTotals).toEqual({
-      inputTokens: 20,
-      outputTokens: 10,
-      totalTokens: 30,
+      inputTokens: 10,
+      outputTokens: 5,
+      totalTokens: 15,
       runtimeSeconds: 0,
     });
   });
@@ -208,13 +205,13 @@ describe("Worker", () => {
 
   it("stops with MaxTurnsReached when the issue remains active", async () => {
     const output = await runWithWorker({
-      config: { ...baseConfig, maxTurns: 2 },
-      trackerStates: ["Todo", "Todo"],
-      turnResults: [successTurn("one"), successTurn("two")],
+      config: { ...baseConfig, maxTurns: 1 },
+      trackerStates: ["Todo"],
+      turnResults: [successTurn("one")],
     });
 
-    expect(output.result).toEqual({ _tag: "MaxTurnsReached", turnCount: 2 });
-    expect(output.snapshot.running[0]?.turnCount).toBe(2);
+    expect(output.result).toEqual({ _tag: "MaxTurnsReached", turnCount: 1 });
+    expect(output.snapshot.running[0]?.turnCount).toBe(1);
   });
 
   it("returns Failed for workspace creation failures", async () => {

@@ -243,7 +243,7 @@ export const makeWorker = ({
 
           if (turnCount >= config.maxTurns) return { _tag: "MaxTurnsReached", turnCount };
 
-          return yield* runLoop(workspacePath);
+          return { _tag: "Completed", turnCount };
         });
 
       const core = Effect.gen(function* () {
