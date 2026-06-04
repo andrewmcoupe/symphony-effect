@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import type { LoadedConfig } from "./config/index.js";
+import { GitProvider } from "./git/index.js";
 import { HttpServer } from "./observability/index.js";
 import { Orchestrator, OrchestratorRefresh, OrchestratorStateRef } from "./orchestrator/index.js";
 import { TrackerClient } from "./tracker/index.js";
@@ -35,6 +36,7 @@ describe("makeMainLive", () => {
     const services = await Effect.runPromise(
       Effect.gen(function* () {
         yield* HookExecutor;
+        yield* GitProvider;
         yield* HttpServer;
         yield* Orchestrator;
         yield* OrchestratorRefresh;

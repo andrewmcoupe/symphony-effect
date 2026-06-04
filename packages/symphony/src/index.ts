@@ -3,9 +3,17 @@ export const VERSION = "0.0.0";
 export * from "./agent/index.js";
 export * from "./cli.js";
 export * from "./config/index.js";
-export { makeNoopGitProvider, NoopGitProviderLive } from "./git/index.js";
+export {
+  GitProviderLive,
+  makeGitHubClient,
+  makeGitHubClientFromConfig,
+  makeGitProviderLive,
+  makeNoopGitProvider,
+  NoopGitProviderLive,
+} from "./git/index.js";
 export {
   GitProvider,
+  type GitHubFetch,
   type GitProviderError,
   type GitProviderService,
   type OpenPullRequestParams,
