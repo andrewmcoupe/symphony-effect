@@ -45,6 +45,7 @@ git:
   kind: github
   token: $GITHUB_TOKEN
   repo: owner/name
+  api_base_url: https://api.github.com    # Optional. This is the default; override for GitHub Enterprise.
   base_branch: main
   branch_template: "symphony/{{ issue.identifier }}"
   draft: false

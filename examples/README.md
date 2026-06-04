@@ -24,6 +24,8 @@ missing.
 
 - `LINEAR_API_KEY`: Linear API token for the full and minimal examples.
 - `ANTHROPIC_API_KEY`: Anthropic API key used by the Claude Agent SDK.
+- `GITHUB_TOKEN`: GitHub token for the full example's `git` provider. Needs repo
+  scope (classic) or `pull_requests:write` + `contents:read`.
 - `SYMPHONY_REPOSITORY_URL`: Git URL cloned by the full example.
 - `SYMPHONY_BASE_BRANCH`: Optional base branch for full example hooks. Defaults
   to `main`.

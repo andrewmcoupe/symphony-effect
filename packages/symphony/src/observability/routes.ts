@@ -1,16 +1,21 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { Effect } from "effect";
+import { streamSSE, type SSEStreamingApi } from "hono/streaming";
+import { Effect, Queue } from "effect";
 import type {
+  DomainEvent,
   OrchestratorRefreshService,
   OrchestratorSnapshot,
   OrchestratorStateRefService,
 } from "../orchestrator/index.js";
 import type { AgentOutput, IssueDetail, StateSnapshot } from "./types.js";
 
+const DEFAULT_HEARTBEAT_INTERVAL_MS = 20_000;
+
 interface RoutesOptions {
   readonly stateRef: OrchestratorStateRefService;
   readonly refresh: OrchestratorRefreshService;
+  readonly heartbeatIntervalMs?: number;
 }
 
 const toIsoString = (timestamp: number): string => new Date(timestamp).toISOString();
@@ -48,6 +53,57 @@ const toStateSnapshot = (snapshot: OrchestratorSnapshot): StateSnapshot => ({
   shutdownRequested: snapshot.shutdownRequested,
   agentOutputs: snapshot.agentOutputs.map(toAgentOutput),
 });
+
+const waitForAbort = (stream: SSEStreamingApi): Effect.Effect<void> =>
+  Effect.promise(
+    () =>
+      new Promise<void>((resolve) => {
+        if (stream.aborted) {
+          resolve();
+          return;
+        }
+        stream.onAbort(resolve);
+      }),
+  );
+
+const writeDomainEvent = (stream: SSEStreamingApi, event: DomainEvent): Effect.Effect<void> =>
+  Effect.promise(() =>
+    stream.writeSSE({
+      event: event._tag,
+      data: JSON.stringify({ identifier: event.identifier }),
+    }),
+  );
+
+const writeHeartbeat = (stream: SSEStreamingApi): Effect.Effect<void> =>
+  Effect.promise(() => stream.write(": ping\n\n"));
+
+const streamDomainEvents = ({
+  heartbeatIntervalMs,
+  stateRef,
+  stream,
+}: {
+  readonly heartbeatIntervalMs: number;
+  readonly stateRef: OrchestratorStateRefService;
+  readonly stream: SSEStreamingApi;
+}): Effect.Effect<void> =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const subscription = yield* stateRef.subscribe();
+      const eventPump = Queue.take(subscription).pipe(
+        Effect.flatMap((event) => writeDomainEvent(stream, event)),
+        Effect.forever,
+      );
+      const heartbeat = Effect.sleep(heartbeatIntervalMs).pipe(
+        Effect.zipRight(writeHeartbeat(stream)),
+        Effect.forever,
+      );
+
+      yield* Effect.race(
+        waitForAbort(stream),
+        Effect.all([eventPump, heartbeat], { concurrency: "unbounded" }),
+      );
+    }),
+  );
 
 type IssueDetailResult =
   | { readonly status: 200; readonly detail: IssueDetail }
@@ -112,10 +168,20 @@ const toIssueDetail = (identifier: string, snapshot: OrchestratorSnapshot): Issu
   return { status: 404, detail: { message: `Issue ${identifier} was not found` } };
 };
 
-export const makeHonoApp = ({ stateRef, refresh }: RoutesOptions): Hono => {
+export const makeHonoApp = ({
+  stateRef,
+  refresh,
+  heartbeatIntervalMs = DEFAULT_HEARTBEAT_INTERVAL_MS,
+}: RoutesOptions): Hono => {
   const app = new Hono();
 
   app.use("*", cors());
+
+  app.get("/api/v1/events", (context) =>
+    streamSSE(context, (stream) =>
+      Effect.runPromise(streamDomainEvents({ heartbeatIntervalMs, stateRef, stream })),
+    ),
+  );
 
   app.get("/api/v1/state", async (context) => {
     const snapshot = await Effect.runPromise(stateRef.getSnapshot());

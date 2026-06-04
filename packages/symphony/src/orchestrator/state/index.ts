@@ -15,6 +15,7 @@ export {
   updateActivityMutation,
   updateTrackerStateMutation,
 } from "./mutations.js";
+export { makeDomainEventPubSub, type DomainEvent } from "./events.js";
 export {
   makeOrchestratorStateRef,
   OrchestratorStateRef,

@@ -1,6 +1,7 @@
-import { Effect, Fiber } from "effect";
+import { Effect, Fiber, Option, Queue } from "effect";
 import { describe, expect, it } from "vitest";
 import { OrchestratorStateRef, OrchestratorStateRefLive } from "./ref.js";
+import type { DomainEvent } from "./events.js";
 import type { WorkerError } from "./types.js";
 
 const runWithState = <A, E>(effect: Effect.Effect<A, E, OrchestratorStateRef>) =>
@@ -8,6 +9,10 @@ const runWithState = <A, E>(effect: Effect.Effect<A, E, OrchestratorStateRef>) =
 
 const makeFiber = (): Fiber.RuntimeFiber<void, WorkerError> =>
   Effect.runFork(Effect.void) as Fiber.RuntimeFiber<void, WorkerError>;
+
+const takeEvent = (queue: Queue.Dequeue<DomainEvent>) => Queue.take(queue);
+
+const pollEvent = (queue: Queue.Dequeue<DomainEvent>) => Queue.poll(queue);
 
 describe("OrchestratorStateRef", () => {
   it("claims issues and exposes them in the snapshot", async () => {
@@ -313,5 +318,138 @@ describe("OrchestratorStateRef", () => {
 
     expect(first.claims).toHaveLength(1);
     expect(second.claims).toHaveLength(0);
+  });
+
+  it("publishes IssueStateChanged events for issue state mutations", async () => {
+    const events = await runWithState(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const state = yield* OrchestratorStateRef;
+          const subscription = yield* state.subscribe();
+          const emitted: DomainEvent[] = [];
+
+          yield* state.claimIssue("issue-123", "ABC-123");
+          emitted.push(yield* takeEvent(subscription));
+
+          yield* state.markRunning("issue-123", makeFiber());
+          emitted.push(yield* takeEvent(subscription));
+
+          yield* state.markRetryQueued("issue-123", 2, "failed", { dueAt: 200 });
+          emitted.push(yield* takeEvent(subscription));
+
+          yield* state.markRunning("issue-123", makeFiber());
+          emitted.push(yield* takeEvent(subscription));
+
+          yield* state.updateTrackerState("issue-123", "In Progress");
+          emitted.push(yield* takeEvent(subscription));
+
+          yield* state.releaseIssue("issue-123");
+          emitted.push(yield* takeEvent(subscription));
+
+          return emitted;
+        }),
+      ),
+    );
+
+    expect(events).toEqual([
+      { _tag: "IssueStateChanged", issueId: "issue-123", identifier: "ABC-123" },
+      { _tag: "IssueStateChanged", issueId: "issue-123", identifier: "ABC-123" },
+      { _tag: "IssueStateChanged", issueId: "issue-123", identifier: "ABC-123" },
+      { _tag: "IssueStateChanged", issueId: "issue-123", identifier: "ABC-123" },
+      { _tag: "IssueStateChanged", issueId: "issue-123", identifier: "ABC-123" },
+      { _tag: "IssueStateChanged", issueId: "issue-123", identifier: "ABC-123" },
+    ]);
+  });
+
+  it("publishes TurnRecorded events for recorded turns", async () => {
+    const event = await runWithState(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const state = yield* OrchestratorStateRef;
+          const subscription = yield* state.subscribe();
+
+          yield* state.markRunning("issue-123", makeFiber(), "ABC-123");
+          yield* takeEvent(subscription);
+          yield* state.recordTurn("issue-123", "In Progress", "Implemented the fix.");
+          return yield* takeEvent(subscription);
+        }),
+      ),
+    );
+
+    expect(event).toEqual({
+      _tag: "TurnRecorded",
+      issueId: "issue-123",
+      identifier: "ABC-123",
+    });
+  });
+
+  it("publishes one IssueStateChanged event per due retry", async () => {
+    const events = await runWithState(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const state = yield* OrchestratorStateRef;
+          const subscription = yield* state.subscribe();
+
+          yield* state.markRetryQueued("issue-1", 1, "first", {
+            dueAt: 100,
+            identifier: "ABC-1",
+          });
+          yield* takeEvent(subscription);
+          yield* state.markRetryQueued("issue-2", 2, "second", {
+            dueAt: 100,
+            identifier: "ABC-2",
+          });
+          yield* takeEvent(subscription);
+
+          yield* state.takeDueRetries(100);
+          return [yield* takeEvent(subscription), yield* takeEvent(subscription)];
+        }),
+      ),
+    );
+
+    expect(events).toEqual([
+      { _tag: "IssueStateChanged", issueId: "issue-1", identifier: "ABC-1" },
+      { _tag: "IssueStateChanged", issueId: "issue-2", identifier: "ABC-2" },
+    ]);
+  });
+
+  it("does not publish events for silent mutations", async () => {
+    const event = await runWithState(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const state = yield* OrchestratorStateRef;
+          const subscription = yield* state.subscribe();
+
+          yield* state.markRunning("issue-123", makeFiber(), "ABC-123");
+          yield* takeEvent(subscription);
+          yield* state.incrementTokens({ inputTokens: 1 });
+          yield* state.updateActivity("issue-123");
+          yield* state.recordPoll(123);
+
+          return yield* pollEvent(subscription);
+        }),
+      ),
+    );
+
+    expect(Option.isNone(event)).toBe(true);
+  });
+
+  it("uses a sliding PubSub so non-draining subscribers do not block publishers", async () => {
+    const published = await runWithState(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const state = yield* OrchestratorStateRef;
+          yield* state.subscribe();
+
+          for (let index = 0; index < 128; index += 1) {
+            yield* state.claimIssue(`issue-${index}`, `ABC-${index}`);
+          }
+
+          return 128;
+        }),
+      ),
+    );
+
+    expect(published).toBe(128);
   });
 });

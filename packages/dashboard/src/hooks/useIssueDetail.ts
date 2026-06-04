@@ -11,5 +11,6 @@ export const useIssueDetail = (identifier: string) =>
     queryKey: issueDetailQueryKey(identifier),
     queryFn: () => fetchIssue(identifier),
     enabled: identifier.length > 0,
-    refetchInterval: 5_000,
+    refetchInterval: 30_000,
+    refetchOnReconnect: true,
   });

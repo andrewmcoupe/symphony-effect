@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   HttpServer,
   HttpServerLive,
+  makeHonoApp,
   OrchestratorRefresh,
   OrchestratorRefreshLive,
   OrchestratorStateRef,
@@ -15,6 +16,56 @@ import type { WorkerError } from "../orchestrator/state/types.js";
 
 const makeFiber = (): Fiber.RuntimeFiber<void, WorkerError> =>
   Effect.runFork(Effect.void) as Fiber.RuntimeFiber<void, WorkerError>;
+
+const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+const waitFor = async (predicate: () => boolean, timeoutMs = 1_000): Promise<void> => {
+  const startedAt = Date.now();
+  const check = async (): Promise<void> => {
+    if (predicate()) return;
+    if (Date.now() - startedAt >= timeoutMs) {
+      throw new Error("Timed out waiting for condition");
+    }
+    await delay(5);
+    await check();
+  };
+  await check();
+};
+
+const readUntil = async (
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  predicate: (text: string) => boolean,
+  timeoutMs = 1_000,
+): Promise<string> => {
+  const decoder = new TextDecoder();
+  let text = "";
+  const startedAt = Date.now();
+
+  const readMore = async (): Promise<string> => {
+    if (predicate(text)) return text;
+
+    const remainingMs = timeoutMs - (Date.now() - startedAt);
+    if (remainingMs <= 0) {
+      throw new Error(`Timed out waiting for SSE frame. Received:\n${text}`);
+    }
+
+    const result = await Promise.race([
+      reader.read(),
+      new Promise<ReadableStreamReadResult<Uint8Array>>((resolve) =>
+        setTimeout(() => resolve({ done: false, value: new Uint8Array() }), remainingMs),
+      ),
+    ]);
+    if (result.done) {
+      throw new Error(`SSE stream ended before expected frame. Received:\n${text}`);
+    }
+    if (result.value.length > 0) {
+      text += decoder.decode(result.value, { stream: true });
+    }
+    return readMore();
+  };
+
+  return readMore();
+};
 
 const runWithServer = <A, E>(
   effect: Effect.Effect<
@@ -32,6 +83,74 @@ const runWithServer = <A, E>(
   );
 
 describe("HttpServer", () => {
+  it("streams domain events, heartbeat frames, and releases subscriptions on disconnect", async () => {
+    const setup = await runWithServer(
+      Effect.gen(function* () {
+        const state = yield* OrchestratorStateRef;
+        const refresh = yield* OrchestratorRefresh;
+        let activeSubscriptions = 0;
+        let releasedSubscriptions = 0;
+        const instrumentedState: OrchestratorStateRefService = {
+          ...state,
+          subscribe: () =>
+            Effect.acquireRelease(
+              state.subscribe().pipe(
+                Effect.tap(() =>
+                  Effect.sync(() => {
+                    activeSubscriptions += 1;
+                  }),
+                ),
+              ),
+              () =>
+                Effect.sync(() => {
+                  activeSubscriptions -= 1;
+                  releasedSubscriptions += 1;
+                }),
+            ),
+        };
+
+        return {
+          app: makeHonoApp({
+            heartbeatIntervalMs: 10,
+            refresh,
+            stateRef: instrumentedState,
+          }),
+          getSubscriptionCounts: () => ({ activeSubscriptions, releasedSubscriptions }),
+          state,
+        };
+      }),
+    );
+
+    const response = await setup.app.fetch(
+      new Request("http://localhost/api/v1/events", {
+        headers: { Origin: "http://localhost:5173" },
+      }),
+    );
+    const reader = response.body?.getReader();
+    if (reader === undefined) throw new Error("Expected SSE response body");
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
+    expect(response.headers.get("access-control-allow-origin")).toBe("*");
+    await waitFor(() => setup.getSubscriptionCounts().activeSubscriptions === 1);
+
+    await Effect.runPromise(setup.state.markRunning("issue-1", makeFiber(), "ABC-1", "Todo"));
+    const eventText = await readUntil(
+      reader,
+      (text) =>
+        text.includes("event: IssueStateChanged") && text.includes('data: {"identifier":"ABC-1"}'),
+    );
+    expect(eventText).not.toContain("issue-1");
+
+    await readUntil(reader, (text) => text.includes(": ping"));
+    await reader.cancel();
+    await waitFor(
+      () =>
+        setup.getSubscriptionCounts().activeSubscriptions === 0 &&
+        setup.getSubscriptionCounts().releasedSubscriptions === 1,
+    );
+  });
+
   it("serves the orchestrator state snapshot with CORS and JSON content type", async () => {
     const response = await runWithServer(
       Effect.scoped(
