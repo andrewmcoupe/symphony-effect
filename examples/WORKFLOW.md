@@ -114,6 +114,15 @@ agent:
   max_concurrent_agents_by_state:           # Optional per-state concurrency limits.
     Todo: 3
     In Progress: 5
+  allowed_tools:                            # Optional auto-allowed Claude SDK tools.
+    - mcp__linear__*
+  mcp_servers:                              # Optional Claude Agent SDK MCP servers.
+    linear:
+      type: http
+      url: https://mcp.linear.app/mcp
+      headers:
+        Authorization: "Bearer $LINEAR_API_KEY"
+      alwaysLoad: true
 
 ---
 
@@ -189,11 +198,15 @@ matching the existing project patterns.
 
 ## Linear Handoff
 
-When implementation and local verification are complete, use the available
-Linear tooling to move {{ issue.identifier }} to `In Review`. Add a Linear
+When implementation and local verification are complete, use Linear tooling if
+it is available to move {{ issue.identifier }} to `In Review`. Add a Linear
 comment stating that implementation is complete and Symphony will open a pull
-request for branch `symphony/{{ issue.identifier }}` after this run. Do not move
-the issue to `Done`; human review and merge should do that.
+request for branch `symphony/{{ issue.identifier }}` after this run.
+
+If Linear tooling is not available, do not spend extra turns trying to install
+or discover it. State that the Linear handoff could not be performed because no
+Linear tooling is available, then finish the run. Do not move the issue to
+`Done`; human review and merge should do that.
 
 ## Engineering Guidelines
 

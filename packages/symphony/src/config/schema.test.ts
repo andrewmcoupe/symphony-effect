@@ -11,6 +11,7 @@ import {
 
 const ENV_KEY = "SYMPHONY_TEST_API_KEY";
 const GITHUB_ENV_KEY = "SYMPHONY_TEST_GITHUB_TOKEN";
+const LINEAR_MCP_ENV_KEY = "SYMPHONY_TEST_LINEAR_MCP_TOKEN";
 
 const run = <A, E>(effect: Effect.Effect<A, E>): Either.Either<A, E> =>
   Effect.runSync(Effect.either(effect));
@@ -32,6 +33,7 @@ const baseRaw = () => ({
 afterEach(() => {
   delete process.env[ENV_KEY];
   delete process.env[GITHUB_ENV_KEY];
+  delete process.env[LINEAR_MCP_ENV_KEY];
 });
 
 describe("substituteEnvVars", () => {
@@ -108,6 +110,61 @@ describe("decodeWorkflowConfig", () => {
     expect(config.agent.model).toBe("claude-sonnet-4-6");
     expect(config.agent.max_concurrent_agents).toBe(10);
     expect(config.agent.stall_timeout_ms).toBe(300_000);
+  });
+
+  it("parses agent MCP servers and allowed tools", () => {
+    process.env[LINEAR_MCP_ENV_KEY] = "linear-token";
+    const config = (
+      run(
+        decodeWorkflowConfig({
+          ...baseRaw(),
+          agent: {
+            allowed_tools: ["mcp__linear__*"],
+            mcp_servers: {
+              linear: {
+                type: "http",
+                url: "https://mcp.linear.app/mcp",
+                headers: {
+                  Authorization: `Bearer $${LINEAR_MCP_ENV_KEY}`,
+                },
+                tools: [{ name: "update_issue", permission_policy: "always_ask" }],
+                timeout: 10_000,
+                alwaysLoad: true,
+              },
+              local_linear: {
+                command: "npx",
+                args: ["-y", "mcp-remote", "https://mcp.linear.app/mcp"],
+                env: {
+                  LINEAR_API_KEY: `$${LINEAR_MCP_ENV_KEY}`,
+                },
+              },
+            },
+          },
+        }),
+      ) as Either.Right<WorkflowConfig>
+    ).right;
+
+    expect(config.agent.allowed_tools).toEqual(["mcp__linear__*"]);
+    expect(config.agent.mcp_servers).toEqual({
+      linear: {
+        type: "http",
+        url: "https://mcp.linear.app/mcp",
+        headers: {
+          Authorization: "Bearer linear-token",
+        },
+        tools: [{ name: "update_issue", permission_policy: "always_ask" }],
+        timeout: 10_000,
+        alwaysLoad: true,
+      },
+      local_linear: {
+        type: "stdio",
+        command: "npx",
+        args: ["-y", "mcp-remote", "https://mcp.linear.app/mcp"],
+        env: {
+          LINEAR_API_KEY: "linear-token",
+        },
+      },
+    });
   });
 
   it("resolves a $VAR reference in api_key", () => {

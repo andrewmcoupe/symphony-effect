@@ -39,6 +39,12 @@ export const makeMainLive = ({
   const agent = makeAgentRunnerLive({
     maxTurns: loaded.config.agent.max_turns,
     ...(loaded.config.agent.model === undefined ? {} : { model: loaded.config.agent.model }),
+    ...(loaded.config.agent.mcp_servers === undefined
+      ? {}
+      : { mcpServers: loaded.config.agent.mcp_servers }),
+    ...(loaded.config.agent.allowed_tools === undefined
+      ? {}
+      : { allowedTools: loaded.config.agent.allowed_tools }),
   }).pipe(Layer.provideMerge(hooks));
   const concurrency = makeConcurrencyControllerLive(loaded.config.agent).pipe(
     Layer.provideMerge(agent),

@@ -6,7 +6,7 @@ import type {
 import { Effect, Either, Fiber } from "effect";
 import { describe, expect, it } from "vitest";
 import { NonZeroExit, OutputParseFailed, SpawnFailed, TimedOut } from "./errors.js";
-import { type ClaudeQuery, makeAgentRunner } from "./runner.js";
+import { type AgentRunnerConfig, type ClaudeQuery, makeAgentRunner } from "./runner.js";
 
 interface QueryCall {
   readonly prompt: string;
@@ -56,11 +56,13 @@ const makeFakeQuery = (messages: readonly SDKMessage[], calls: QueryCall[]): Cla
     return streamMessages(messages);
   }) as ClaudeQuery;
 
-const runTurn = (query: ClaudeQuery) => {
+const runTurn = (query: ClaudeQuery, config: Partial<AgentRunnerConfig> = {}) => {
   const runner = makeAgentRunner({
     query,
-    maxTurns: 7,
-    model: "claude-sonnet-4-6",
+    maxTurns: config.maxTurns ?? 7,
+    model: config.model ?? "claude-sonnet-4-6",
+    ...(config.mcpServers === undefined ? {} : { mcpServers: config.mcpServers }),
+    ...(config.allowedTools === undefined ? {} : { allowedTools: config.allowedTools }),
   });
 
   return Effect.runPromise(
@@ -78,7 +80,19 @@ const runTurn = (query: ClaudeQuery) => {
 describe("AgentRunner", () => {
   it("runs the Claude Agent SDK and maps a successful result", async () => {
     const calls: QueryCall[] = [];
-    const result = await runTurn(makeFakeQuery([initMessage(), resultMessage()], calls));
+    const mcpServers = {
+      linear: {
+        type: "http",
+        url: "https://mcp.linear.app/mcp",
+        headers: {
+          Authorization: "Bearer linear-token",
+        },
+      },
+    } as const;
+    const result = await runTurn(makeFakeQuery([initMessage(), resultMessage()], calls), {
+      mcpServers,
+      allowedTools: ["mcp__linear__*"],
+    });
 
     expect(Either.isRight(result)).toBe(true);
     if (Either.isRight(result)) {
@@ -106,6 +120,8 @@ describe("AgentRunner", () => {
       allowDangerouslySkipPermissions: true,
       maxTurns: 7,
       model: "claude-sonnet-4-6",
+      mcpServers,
+      allowedTools: ["mcp__linear__*"],
       resume: "resume-session",
     });
     expect(calls[0]?.options?.abortController).toBeInstanceOf(AbortController);

@@ -89,6 +89,7 @@ const PathString = Schema.transformOrFail(Schema.String, Schema.String, {
 });
 
 const PositiveInt = Schema.Number.pipe(Schema.int(), Schema.positive());
+const NonEmptyEnvString = EnvString.pipe(Schema.nonEmptyString());
 
 // ---------------------------------------------------------------------------
 // Workflow config schema (mirrors PRD §"Config Loader")
@@ -141,6 +142,40 @@ const HooksConfig = Schema.Struct({
   timeout_ms: Schema.optionalWith(PositiveInt, { default: () => 60_000 }),
 });
 
+const McpServerToolPolicyConfig = Schema.Struct({
+  name: Schema.String.pipe(Schema.nonEmptyString()),
+  permission_policy: Schema.Literal("always_allow", "always_ask", "always_deny"),
+});
+
+const McpRemoteServerConfig = {
+  url: NonEmptyEnvString,
+  headers: Schema.optional(Schema.Record({ key: Schema.String, value: EnvString })),
+  tools: Schema.optional(Schema.Array(McpServerToolPolicyConfig)),
+  timeout: Schema.optional(PositiveInt),
+  alwaysLoad: Schema.optional(Schema.Boolean),
+} as const;
+
+const McpHttpServerConfig = Schema.Struct({
+  type: Schema.Literal("http"),
+  ...McpRemoteServerConfig,
+});
+
+const McpSseServerConfig = Schema.Struct({
+  type: Schema.Literal("sse"),
+  ...McpRemoteServerConfig,
+});
+
+const McpStdioServerConfig = Schema.Struct({
+  type: Schema.optionalWith(Schema.Literal("stdio"), { default: () => "stdio" as const }),
+  command: NonEmptyEnvString,
+  args: Schema.optional(Schema.Array(EnvString)),
+  env: Schema.optional(Schema.Record({ key: Schema.String, value: EnvString })),
+  timeout: Schema.optional(PositiveInt),
+  alwaysLoad: Schema.optional(Schema.Boolean),
+});
+
+const McpServerConfig = Schema.Union(McpStdioServerConfig, McpHttpServerConfig, McpSseServerConfig);
+
 const AgentConfig = Schema.Struct({
   max_concurrent_agents: Schema.optionalWith(PositiveInt, { default: () => 10 }),
   max_turns: Schema.optionalWith(PositiveInt, { default: () => 20 }),
@@ -152,6 +187,8 @@ const AgentConfig = Schema.Struct({
   max_concurrent_agents_by_state: Schema.optional(
     Schema.Record({ key: Schema.String, value: PositiveInt }),
   ),
+  mcp_servers: Schema.optional(Schema.Record({ key: Schema.String, value: McpServerConfig })),
+  allowed_tools: Schema.optional(Schema.Array(Schema.String.pipe(Schema.nonEmptyString()))),
 });
 
 /**

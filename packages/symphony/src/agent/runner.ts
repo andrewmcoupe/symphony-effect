@@ -1,5 +1,6 @@
 import {
   query as sdkQuery,
+  type McpServerConfig,
   type Options as ClaudeQueryOptions,
   type SDKMessage,
   type SDKResultMessage,
@@ -23,9 +24,34 @@ export const AgentRunner = Context.GenericTag<AgentRunner>("symphony/AgentRunner
 
 export type ClaudeQuery = typeof sdkQuery;
 
+export type AgentMcpServerToolPolicy = {
+  readonly name: string;
+  readonly permission_policy: "always_allow" | "always_ask" | "always_deny";
+};
+
+export type AgentMcpServerConfig =
+  | {
+      readonly type?: "stdio";
+      readonly command: string;
+      readonly args?: readonly string[] | undefined;
+      readonly env?: Readonly<Record<string, string>> | undefined;
+      readonly timeout?: number | undefined;
+      readonly alwaysLoad?: boolean | undefined;
+    }
+  | {
+      readonly type: "http" | "sse";
+      readonly url: string;
+      readonly headers?: Readonly<Record<string, string>> | undefined;
+      readonly tools?: readonly AgentMcpServerToolPolicy[] | undefined;
+      readonly timeout?: number | undefined;
+      readonly alwaysLoad?: boolean | undefined;
+    };
+
 export interface AgentRunnerConfig {
   readonly maxTurns: number;
   readonly model?: string;
+  readonly mcpServers?: Readonly<Record<string, AgentMcpServerConfig>>;
+  readonly allowedTools?: readonly string[];
 }
 
 interface AgentRunnerDependencies extends AgentRunnerConfig {
@@ -139,13 +165,46 @@ const mapQueryFailure = (workspacePath: string, cause: unknown): AgentError =>
         reason: cause instanceof Error ? cause.message : String(cause),
       });
 
+const normalizeMcpServerConfig = (server: AgentMcpServerConfig): McpServerConfig => {
+  if ("command" in server) {
+    return {
+      ...(server.type === undefined ? {} : { type: server.type }),
+      command: server.command,
+      ...(server.args === undefined ? {} : { args: [...server.args] }),
+      ...(server.env === undefined ? {} : { env: { ...server.env } }),
+      ...(server.timeout === undefined ? {} : { timeout: server.timeout }),
+      ...(server.alwaysLoad === undefined ? {} : { alwaysLoad: server.alwaysLoad }),
+    };
+  }
+
+  return {
+    type: server.type,
+    url: server.url,
+    ...(server.headers === undefined ? {} : { headers: { ...server.headers } }),
+    ...(server.tools === undefined ? {} : { tools: server.tools.map((tool) => ({ ...tool })) }),
+    ...(server.timeout === undefined ? {} : { timeout: server.timeout }),
+    ...(server.alwaysLoad === undefined ? {} : { alwaysLoad: server.alwaysLoad }),
+  };
+};
+
+const normalizeMcpServers = (
+  servers: Readonly<Record<string, AgentMcpServerConfig>>,
+): Record<string, McpServerConfig> =>
+  Object.fromEntries(
+    Object.entries(servers).map(([name, server]) => [name, normalizeMcpServerConfig(server)]),
+  );
+
 const runCancellableQuery = ({
+  allowedTools,
   maxTurns,
+  mcpServers,
   model,
   params,
   query,
 }: {
+  readonly allowedTools?: readonly string[];
   readonly maxTurns: number;
+  readonly mcpServers?: Readonly<Record<string, AgentMcpServerConfig>>;
   readonly model?: string;
   readonly params: TurnParams;
   readonly query: ClaudeQuery;
@@ -160,6 +219,8 @@ const runCancellableQuery = ({
       maxTurns,
       abortController,
       ...(model === undefined ? {} : { model }),
+      ...(mcpServers === undefined ? {} : { mcpServers: normalizeMcpServers(mcpServers) }),
+      ...(allowedTools === undefined ? {} : { allowedTools: [...allowedTools] }),
       ...(params.resumeSessionId === undefined ? {} : { resume: params.resumeSessionId }),
     } satisfies ClaudeQueryOptions;
 
@@ -184,13 +245,17 @@ const runCancellableQuery = ({
   });
 
 export const makeAgentRunner = ({
+  allowedTools,
   maxTurns,
+  mcpServers,
   model,
   query = sdkQuery,
 }: AgentRunnerDependencies): AgentRunner => {
   const runTurn = (params: TurnParams): Effect.Effect<TurnResult, AgentError> =>
     runCancellableQuery({
+      ...(allowedTools === undefined ? {} : { allowedTools }),
       maxTurns,
+      ...(mcpServers === undefined ? {} : { mcpServers }),
       params,
       query,
       ...(model === undefined ? {} : { model }),
