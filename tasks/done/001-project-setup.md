@@ -76,7 +76,7 @@ None - this is the foundation.
 ## Files to Create
 
 ```
-typescript-symphony/
+symphony-effect/
 ├── package.json
 ├── pnpm-workspace.yaml
 ├── tsconfig.base.json

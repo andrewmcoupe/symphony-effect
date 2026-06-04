@@ -71,7 +71,7 @@ This implementation uses **Claude Code** as the coding agent (instead of OpenAI 
 ### Monorepo Structure
 
 ```
-typescript-symphony/
+symphony-effect/
 ├── package.json                 # Workspace root
 ├── pnpm-workspace.yaml
 ├── packages/
