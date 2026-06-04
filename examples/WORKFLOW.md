@@ -32,6 +32,29 @@ workspace:
   root: ~/symphony-workspaces               # Base directory for per-issue workspaces.
 
 # -----------------------------------------------------------------------------
+# Git Provider Configuration
+# -----------------------------------------------------------------------------
+# Opens or reuses a GitHub pull request after a worker session pushes changes.
+# The head branch must match the branch pushed by the lifecycle hooks below.
+# User setup:
+# - Enable Linear's GitHub integration for this repository.
+# - Add a Linear automation: linked pull request opened -> move issue to In Review.
+# - Keep In Review out of active_states so Symphony stops rerunning reviewed work.
+# - GITHUB_TOKEN needs repo scope (classic) or pull_requests:write + contents:read.
+git:
+  kind: github
+  token: $GITHUB_TOKEN
+  repo: owner/name
+  base_branch: main
+  branch_template: "symphony/{{ issue.identifier }}"
+  draft: false
+  title_template: "{{ issue.identifier }}: {{ issue.title }}"
+  body_template: |
+    Automated changes for {{ issue.identifier }}.
+
+    {{ issue.url }}
+
+# -----------------------------------------------------------------------------
 # Lifecycle Hooks
 # -----------------------------------------------------------------------------
 hooks:

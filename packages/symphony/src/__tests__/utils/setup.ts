@@ -27,6 +27,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createMockAgent, type MockAgent } from "../mocks/agent.js";
+import { createMockGitProvider, type MockGitProvider } from "../mocks/git.js";
 import { createMockTracker, type MockTracker } from "../mocks/tracker.js";
 import { createTempWorkspace, type TempWorkspace } from "../mocks/workspace.js";
 import { waitForState as waitForReadState } from "./assertions.js";
@@ -35,6 +36,7 @@ type WorkflowConfigOverrides = {
   readonly tracker?: Partial<WorkflowConfig["tracker"]>;
   readonly polling?: Partial<WorkflowConfig["polling"]>;
   readonly workspace?: Partial<WorkflowConfig["workspace"]>;
+  readonly git?: Partial<NonNullable<WorkflowConfig["git"]>>;
   readonly hooks?: Partial<WorkflowConfig["hooks"]>;
   readonly agent?: Partial<WorkflowConfig["agent"]>;
 };
@@ -42,6 +44,7 @@ type WorkflowConfigOverrides = {
 export interface IntegrationHarness {
   readonly agent: MockAgent;
   readonly cleanup: () => Promise<void>;
+  readonly gitProvider: MockGitProvider;
   readonly hookCalls: string[];
   readonly orchestrator: Orchestrator;
   readonly pollOnce: () => Promise<PollTickResult>;
@@ -61,39 +64,62 @@ export interface IntegrationHarness {
 export const makeWorkflowConfig = (
   workspaceRoot: string,
   overrides: WorkflowConfigOverrides = {},
-): WorkflowConfig => ({
-  tracker: {
-    kind: "linear",
-    endpoint: "https://linear.example/graphql",
-    api_key: "test-token",
-    project_slug: "project",
-    active_states: ["Todo", "In Progress"],
-    terminal_states: ["Done", "Cancelled"],
-    ...overrides.tracker,
-  },
-  polling: {
-    interval_ms: 25,
-    ...overrides.polling,
-  },
-  workspace: {
-    root: workspaceRoot,
-    ...overrides.workspace,
-  },
-  hooks: {
-    timeout_ms: 1_000,
-    ...overrides.hooks,
-  },
-  agent: {
-    max_concurrent_agents: 2,
-    max_turns: 3,
-    stall_timeout_ms: 300_000,
-    max_retry_backoff_ms: 10_000,
-    ...overrides.agent,
-  },
-});
+): WorkflowConfig => {
+  const git =
+    overrides.git === undefined
+      ? {}
+      : {
+          git: {
+            kind: "github" as const,
+            token: "github-token",
+            repo: "acme/repo",
+            api_base_url: "https://api.github.com",
+            base_branch: "main",
+            branch_template: "symphony/{{ issue.identifier }}",
+            draft: false,
+            title_template: "{{ issue.identifier }}: {{ issue.title }}",
+            body_template: "Automated changes for {{ issue.identifier }}.\n\n{{ issue.url }}",
+            ...overrides.git,
+          },
+        };
+
+  return {
+    tracker: {
+      kind: "linear",
+      endpoint: "https://linear.example/graphql",
+      api_key: "test-token",
+      project_slug: "project",
+      active_states: ["Todo", "In Progress"],
+      terminal_states: ["Done", "Cancelled"],
+      ...overrides.tracker,
+    },
+    polling: {
+      interval_ms: 25,
+      ...overrides.polling,
+    },
+    workspace: {
+      root: workspaceRoot,
+      ...overrides.workspace,
+    },
+    ...git,
+    hooks: {
+      timeout_ms: 1_000,
+      ...overrides.hooks,
+    },
+    agent: {
+      max_concurrent_agents: 2,
+      max_turns: 3,
+      stall_timeout_ms: 300_000,
+      max_retry_backoff_ms: 10_000,
+      ...overrides.agent,
+    },
+  };
+};
 
 const indentList = (values: readonly string[]): string =>
   values.map((value) => `    - ${value}`).join("\n");
+
+const yamlString = (value: string): string => JSON.stringify(value);
 
 export const workflowMarkdown = (
   config: WorkflowConfig,
@@ -108,6 +134,21 @@ export const workflowMarkdown = (
       : [
           "  max_concurrent_agents_by_state:",
           ...Object.entries(perStateLimits).map(([state, max]) => `    ${yamlKey(state)}: ${max}`),
+        ].join("\n");
+  const git =
+    config.git === undefined
+      ? ""
+      : [
+          "git:",
+          "  kind: github",
+          `  token: ${yamlString(config.git.token)}`,
+          `  repo: ${yamlString(config.git.repo)}`,
+          `  api_base_url: ${yamlString(config.git.api_base_url)}`,
+          `  base_branch: ${yamlString(config.git.base_branch)}`,
+          `  branch_template: ${yamlString(config.git.branch_template)}`,
+          `  draft: ${config.git.draft}`,
+          `  title_template: ${yamlString(config.git.title_template)}`,
+          `  body_template: ${yamlString(config.git.body_template)}`,
         ].join("\n");
 
   return [
@@ -125,6 +166,7 @@ export const workflowMarkdown = (
     `  interval_ms: ${config.polling.interval_ms}`,
     "workspace:",
     `  root: ${config.workspace.root}`,
+    git,
     "hooks:",
     `  timeout_ms: ${config.hooks.timeout_ms}`,
     config.hooks.after_create === undefined ? "" : `  after_create: ${config.hooks.after_create}`,
@@ -160,12 +202,14 @@ const makeHookExecutor = (hookCalls: string[]): HookExecutorService => ({
 export const createIntegrationHarness = async ({
   issues = [],
   agent = createMockAgent(),
+  gitProvider = createMockGitProvider(),
   config,
   now = Date.now,
   prompt,
 }: {
   readonly issues?: readonly Issue[];
   readonly agent?: MockAgent;
+  readonly gitProvider?: MockGitProvider;
   readonly config?: WorkflowConfigOverrides;
   readonly now?: () => number;
   readonly prompt?: string;
@@ -208,6 +252,7 @@ export const createIntegrationHarness = async ({
     agent,
     concurrency: services.concurrency,
     hookExecutor,
+    gitProvider,
     loader: services.loader,
     promptRenderer: services.promptRenderer,
     reconciler: services.reconciler,
@@ -223,6 +268,7 @@ export const createIntegrationHarness = async ({
     cleanup: async () => {
       await rm(tempRoot, { recursive: true, force: true });
     },
+    gitProvider,
     hookCalls,
     orchestrator,
     pollOnce: () => Effect.runPromise(orchestrator.pollOnce()),

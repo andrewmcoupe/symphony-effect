@@ -2,6 +2,7 @@ import { Context, Deferred, Effect, Fiber, Layer } from "effect";
 import { ConfigLoader, type LoadedConfig } from "../config/index.js";
 import type { AgentRunner } from "../agent/index.js";
 import type { PromptRenderer } from "../config/index.js";
+import { GitProvider as GitProviderTag, type GitProviderService } from "../git/index.js";
 import { TrackerClient } from "../tracker/index.js";
 import type { Issue } from "../tracker/index.js";
 import type { HookExecutor, WorkspaceManager } from "../workspace/index.js";
@@ -55,6 +56,7 @@ interface WorkerFactoryOptions {
 interface MakeOrchestratorOptions extends OrchestratorConfigValue {
   readonly agent: AgentRunner;
   readonly concurrency: ConcurrencyController;
+  readonly gitProvider?: GitProviderService;
   readonly hookExecutor: HookExecutor;
   readonly loader: ConfigLoader;
   readonly now?: () => number;
@@ -125,6 +127,7 @@ export const makeOrchestrator = ({
   agent,
   concurrency,
   defaultPollingIntervalMs = DEFAULT_POLLING_INTERVAL_MS,
+  gitProvider,
   hookExecutor,
   loader,
   now = Date.now,
@@ -176,11 +179,55 @@ export const makeOrchestrator = ({
         workspaceManager,
       });
 
+      const ensurePullRequest = (): Effect.Effect<void> => {
+        const git = loaded.config.git;
+        if (git === undefined || gitProvider === undefined) return Effect.void;
+
+        return Effect.gen(function* () {
+          const variables = { issue, attempt };
+          const [headBranch, title, body] = yield* Effect.all([
+            promptRenderer.render(git.branch_template, variables),
+            promptRenderer.render(git.title_template, variables),
+            promptRenderer.render(git.body_template, variables),
+          ]);
+
+          const pullRequest = yield* gitProvider.ensurePullRequest({
+            issue,
+            headBranch,
+            baseBranch: git.base_branch,
+            title,
+            body,
+            draft: git.draft,
+          });
+
+          if (pullRequest === null) {
+            yield* Effect.logInfo(`No pull request opened for ${issue.identifier}`);
+            return;
+          }
+
+          yield* Effect.logInfo("Opened pull request").pipe(
+            Effect.annotateLogs({
+              issue_identifier: issue.identifier,
+              number: pullRequest.number,
+              url: pullRequest.url,
+            }),
+          );
+        }).pipe(
+          Effect.catchAll((error) =>
+            Effect.logWarning(
+              `Pull request creation skipped for ${issue.identifier}: ${error.message}`,
+            ),
+          ),
+        );
+      };
+
       const handleResult = (result: WorkerResult): Effect.Effect<void> => {
         switch (result._tag) {
           case "Completed":
           case "MaxTurnsReached":
-            return retry.scheduleContinuation(issue.id, issue.identifier);
+            return ensurePullRequest().pipe(
+              Effect.zipRight(retry.scheduleContinuation(issue.id, issue.identifier)),
+            );
           case "Failed":
             return retry.scheduleRetry(
               issue.id,
@@ -368,6 +415,7 @@ export const OrchestratorLive: Layer.Layer<
   | AgentRunner
   | ConfigLoader
   | ConcurrencyController
+  | GitProviderTag
   | HookExecutor
   | OrchestratorConfigValue
   | OrchestratorStateRef
@@ -382,6 +430,7 @@ export const OrchestratorLive: Layer.Layer<
     const agent = yield* AgentRunnerTag;
     const config = yield* OrchestratorConfig;
     const concurrency = yield* ConcurrencyController;
+    const gitProvider = yield* GitProviderTag;
     const hookExecutor = yield* HookExecutorTag;
     const loader = yield* ConfigLoader;
     const promptRenderer = yield* PromptRendererTag;
@@ -395,6 +444,7 @@ export const OrchestratorLive: Layer.Layer<
       ...config,
       agent,
       concurrency,
+      gitProvider,
       hookExecutor,
       loader,
       promptRenderer,
@@ -415,6 +465,7 @@ export const makeOrchestratorLive = (
   | AgentRunner
   | ConfigLoader
   | ConcurrencyController
+  | GitProviderTag
   | HookExecutor
   | OrchestratorStateRef
   | PromptRenderer
