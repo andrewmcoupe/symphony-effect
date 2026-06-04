@@ -124,6 +124,7 @@ const HooksConfig = Schema.Struct({
 const AgentConfig = Schema.Struct({
   max_concurrent_agents: Schema.optionalWith(PositiveInt, { default: () => 10 }),
   max_turns: Schema.optionalWith(PositiveInt, { default: () => 20 }),
+  model: Schema.optional(Schema.String.pipe(Schema.nonEmptyString())),
   stall_timeout_ms: Schema.optionalWith(Schema.Number.pipe(Schema.int()), {
     default: () => 300_000,
   }),

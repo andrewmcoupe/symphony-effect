@@ -84,7 +84,8 @@ hooks:
 # -----------------------------------------------------------------------------
 agent:
   max_concurrent_agents: 5                  # Max parallel agent sessions.
-  max_turns: 15                             # Max Claude Code turns per session.
+  max_turns: 15                             # Max Claude Agent SDK turns per call.
+  model: claude-sonnet-4-6                  # Optional; omit to use the SDK default.
   stall_timeout_ms: 300000                  # Abort if the agent stalls for 5 minutes.
   max_retry_backoff_ms: 300000              # Cap retry backoff at 5 minutes.
   max_concurrent_agents_by_state:           # Optional per-state concurrency limits.

@@ -23,6 +23,7 @@ these while loading the workflow and fails fast if any referenced variable is
 missing.
 
 - `LINEAR_API_KEY`: Linear API token for the full and minimal examples.
+- `ANTHROPIC_API_KEY`: Anthropic API key used by the Claude Agent SDK.
 - `SYMPHONY_REPOSITORY_URL`: Git URL cloned by the full example.
 - `SYMPHONY_BASE_BRANCH`: Optional base branch for full example hooks. Defaults
   to `main`.
@@ -61,6 +62,7 @@ Example:
 
 ```sh
 export SYMPHONY_LOCAL_API_KEY=local-dev-token
+export ANTHROPIC_API_KEY=sk-ant-...
 export SYMPHONY_LOCAL_SOURCE="$HOME/src/my-project"
 pnpm --filter symphony build
 pnpm --filter symphony exec symphony examples/WORKFLOW.local.md --port 7331

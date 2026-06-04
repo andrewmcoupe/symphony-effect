@@ -105,7 +105,9 @@ const failedAgentResult = (issue: Issue, result: TurnResult): AgentFailed =>
     identifier: issue.identifier,
     reason:
       result.output ||
-      `Claude Code reported an unsuccessful turn with exit code ${result.exitCode}`,
+      (result.exitCode === undefined
+        ? "Claude Code reported an unsuccessful turn"
+        : `Claude Code reported an unsuccessful turn with exit code ${result.exitCode}`),
   });
 
 const fetchIssueState = ({
@@ -163,6 +165,7 @@ export const makeWorker = ({
       const workspacePathRef = yield* Ref.make<string | undefined>(undefined);
       const afterRunEnabledRef = yield* Ref.make(false);
       const turnCountRef = yield* Ref.make(0);
+      const sessionIdRef = yield* Ref.make<string | undefined>(undefined);
 
       const runAfterRun = Ref.get(afterRunEnabledRef).pipe(
         Effect.flatMap((enabled) => {
@@ -205,11 +208,13 @@ export const makeWorker = ({
               ),
             );
 
+          const resumeSessionId = yield* Ref.get(sessionIdRef);
           const turn = yield* agent
             .runTurn({
               prompt,
               workspacePath,
               timeoutMs: config.agentTimeoutMs,
+              ...(resumeSessionId === undefined ? {} : { resumeSessionId }),
             })
             .pipe(
               Effect.mapError(
@@ -224,6 +229,7 @@ export const makeWorker = ({
             );
 
           if (!turn.success) return yield* Effect.fail(failedAgentResult(issue, turn));
+          if (turn.sessionId !== undefined) yield* Ref.set(sessionIdRef, turn.sessionId);
 
           const turnCount = yield* Ref.updateAndGet(turnCountRef, (count) => count + 1);
           yield* stateRef.recordTurn(issue.id);

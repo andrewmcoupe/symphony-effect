@@ -19,6 +19,7 @@ export const successfulTurn = (output = "ok"): TurnResult => ({
   success: true,
   output,
   exitCode: 0,
+  sessionId: `mock-session-${output}`,
   tokensUsed: { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
 });
 

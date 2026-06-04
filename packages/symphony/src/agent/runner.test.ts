@@ -1,123 +1,84 @@
-import { CommandExecutor } from "@effect/platform/CommandExecutor";
 import type {
-  CommandExecutor as CommandExecutorService,
-  ExitCode,
-  Process,
-  ProcessId,
-} from "@effect/platform/CommandExecutor";
-import { makeExecutor } from "@effect/platform/CommandExecutor";
-import { Effect, Either, Option, Sink, Stream } from "effect";
+  Options as ClaudeQueryOptions,
+  SDKMessage,
+  SDKResultMessage,
+} from "@anthropic-ai/claude-agent-sdk";
+import { Effect, Either, Fiber } from "effect";
 import { describe, expect, it } from "vitest";
-import { NonZeroExit, OutputParseFailed, TimedOut } from "./errors.js";
-import { AgentRunner, AgentRunnerLive } from "./runner.js";
+import { NonZeroExit, OutputParseFailed, SpawnFailed, TimedOut } from "./errors.js";
+import { type ClaudeQuery, makeAgentRunner } from "./runner.js";
 
-interface FakeCommandExecutorOptions {
-  readonly stdout?: string;
-  readonly stderr?: string;
-  readonly exitCode?: number;
-  readonly neverExit?: boolean;
-  readonly onKill?: () => void;
+interface QueryCall {
+  readonly prompt: string;
+  readonly options: ClaudeQueryOptions | undefined;
 }
 
-const encoder = new TextEncoder();
+const initMessage = (sessionId = "session-1"): SDKMessage =>
+  ({
+    type: "system",
+    subtype: "init",
+    session_id: sessionId,
+  }) as SDKMessage;
 
-const streamFromText = (text: string): Stream.Stream<Uint8Array> =>
-  text.length === 0 ? Stream.empty : Stream.make(encoder.encode(text));
+const resultMessage = ({
+  isError = false,
+  output = "done",
+  sessionId = "session-1",
+}: {
+  readonly isError?: boolean;
+  readonly output?: string;
+  readonly sessionId?: string;
+} = {}): SDKResultMessage =>
+  ({
+    type: "result",
+    subtype: isError ? "error_during_execution" : "success",
+    is_error: isError,
+    result: isError ? undefined : output,
+    errors: isError ? [output] : undefined,
+    session_id: sessionId,
+    usage: {
+      input_tokens: 10,
+      output_tokens: 5,
+      cache_creation_input_tokens: 2,
+      cache_read_input_tokens: 3,
+    },
+    total_cost_usd: 0.12,
+  }) as SDKResultMessage;
 
-const makeFakeExecutor = (
-  options: FakeCommandExecutorOptions,
-  calls: Array<{
-    readonly command: string;
-    readonly args: readonly string[];
-    readonly cwd: string | undefined;
-  }>,
-): CommandExecutorService => {
-  let running = true;
+const streamMessages = (messages: readonly SDKMessage[]): ReturnType<ClaudeQuery> =>
+  (async function* () {
+    for (const message of messages) yield message;
+  })() as ReturnType<ClaudeQuery>;
 
-  return makeExecutor((command) => {
-    if (command._tag !== "StandardCommand") {
-      return Effect.dieMessage("expected a standard command");
-    }
+const makeFakeQuery = (messages: readonly SDKMessage[], calls: QueryCall[]): ClaudeQuery =>
+  ((params) => {
+    calls.push(params);
+    return streamMessages(messages);
+  }) as ClaudeQuery;
 
-    calls.push({
-      command: command.command,
-      args: command.args,
-      cwd: Option.getOrUndefined(command.cwd),
-    });
-
-    const process = {
-      pid: 1 as ProcessId,
-      exitCode: options.neverExit
-        ? Effect.never
-        : Effect.sync(() => {
-            running = false;
-            return (options.exitCode ?? 0) as ExitCode;
-          }),
-      isRunning: Effect.sync(() => running),
-      kill: () =>
-        Effect.sync(() => {
-          running = false;
-          options.onKill?.();
-        }),
-      stdout: options.neverExit ? Stream.never : streamFromText(options.stdout ?? ""),
-      stdin: Sink.drain,
-      stderr: options.neverExit ? Stream.never : streamFromText(options.stderr ?? ""),
-      toJSON: () => ({ _id: "Process" }),
-      toString: () => "Process",
-    } satisfies Process;
-
-    return Effect.succeed(process);
+const runTurn = (query: ClaudeQuery) => {
+  const runner = makeAgentRunner({
+    query,
+    maxTurns: 7,
+    model: "claude-sonnet-4-6",
   });
-};
 
-const runWithFakeExecutor = (
-  options: FakeCommandExecutorOptions,
-  calls: Array<{
-    readonly command: string;
-    readonly args: readonly string[];
-    readonly cwd: string | undefined;
-  }>,
-) =>
-  Effect.runPromise(
+  return Effect.runPromise(
     Effect.either(
-      Effect.gen(function* () {
-        const runner = yield* AgentRunner;
-        return yield* runner.runTurn({
-          prompt: "Fix the auth bug",
-          workspacePath: "/tmp/symphony/ABC-123",
-          timeoutMs: 100,
-        });
-      }).pipe(
-        Effect.provide(AgentRunnerLive),
-        Effect.provideService(CommandExecutor, makeFakeExecutor(options, calls)),
-      ),
+      runner.runTurn({
+        prompt: "Fix the auth bug",
+        workspacePath: "/tmp/symphony/ABC-123",
+        timeoutMs: 100,
+        resumeSessionId: "resume-session",
+      }),
     ),
   );
+};
 
 describe("AgentRunner", () => {
-  it("runs Claude Code successfully and parses JSON output", async () => {
-    const calls: Array<{
-      readonly command: string;
-      readonly args: readonly string[];
-      readonly cwd: string | undefined;
-    }> = [];
-    const result = await runWithFakeExecutor(
-      {
-        stdout: JSON.stringify({
-          result: "done",
-          is_error: false,
-          usage: {
-            input_tokens: 10,
-            output_tokens: 5,
-            cache_creation_input_tokens: 2,
-            cache_read_input_tokens: 3,
-            total_tokens: 20,
-          },
-          total_cost_usd: 0.12,
-        }),
-      },
-      calls,
-    );
+  it("runs the Claude Agent SDK and maps a successful result", async () => {
+    const calls: QueryCall[] = [];
+    const result = await runTurn(makeFakeQuery([initMessage(), resultMessage()], calls));
 
     expect(Either.isRight(result)).toBe(true);
     if (Either.isRight(result)) {
@@ -125,6 +86,7 @@ describe("AgentRunner", () => {
         success: true,
         output: "done",
         exitCode: 0,
+        sessionId: "session-1",
         tokensUsed: {
           inputTokens: 10,
           outputTokens: 5,
@@ -135,71 +97,118 @@ describe("AgentRunner", () => {
         },
       });
     }
-    expect(calls).toEqual([
-      {
-        command: "claude",
-        args: ["-p", "Fix the auth bug", "--output-format", "json"],
-        cwd: "/tmp/symphony/ABC-123",
-      },
-    ]);
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.prompt).toBe("Fix the auth bug");
+    expect(calls[0]?.options).toMatchObject({
+      cwd: "/tmp/symphony/ABC-123",
+      permissionMode: "bypassPermissions",
+      allowDangerouslySkipPermissions: true,
+      maxTurns: 7,
+      model: "claude-sonnet-4-6",
+      resume: "resume-session",
+    });
+    expect(calls[0]?.options?.abortController).toBeInstanceOf(AbortController);
   });
 
-  it("times out long-running subprocesses", async () => {
-    const calls: Array<{
-      readonly command: string;
-      readonly args: readonly string[];
-      readonly cwd: string | undefined;
-    }> = [];
-    let killCount = 0;
-    const result = await runWithFakeExecutor(
-      {
-        neverExit: true,
-        onKill: () => {
-          killCount += 1;
-        },
-      },
-      calls,
-    );
-
-    expect(Either.isLeft(result)).toBe(true);
-    if (Either.isLeft(result)) {
-      expect(result.left).toBeInstanceOf(TimedOut);
-    }
-    expect(killCount).toBe(1);
-  });
-
-  it("fails with NonZeroExit for non-zero subprocess exits", async () => {
-    const calls: Array<{
-      readonly command: string;
-      readonly args: readonly string[];
-      readonly cwd: string | undefined;
-    }> = [];
-    const result = await runWithFakeExecutor(
-      { exitCode: 7, stdout: "partial", stderr: "bad" },
-      calls,
+  it("fails with NonZeroExit for SDK error results", async () => {
+    const result = await runTurn(
+      makeFakeQuery([initMessage(), resultMessage({ isError: true, output: "tool failed" })], []),
     );
 
     expect(Either.isLeft(result)).toBe(true);
     if (Either.isLeft(result)) {
       expect(result.left).toBeInstanceOf(NonZeroExit);
-      expect(result.left.exitCode).toBe(7);
-      expect(result.left.stdout).toBe("partial");
-      expect(result.left.stderr).toBe("bad");
+      expect(result.left.exitCode).toBe(1);
+      expect(result.left.stderr).toBe("tool failed");
     }
   });
 
-  it("fails with OutputParseFailed for invalid JSON output", async () => {
-    const calls: Array<{
-      readonly command: string;
-      readonly args: readonly string[];
-      readonly cwd: string | undefined;
-    }> = [];
-    const result = await runWithFakeExecutor({ stdout: "not-json" }, calls);
+  it("fails with OutputParseFailed when no result message is emitted", async () => {
+    const result = await runTurn(makeFakeQuery([initMessage()], []));
 
     expect(Either.isLeft(result)).toBe(true);
     if (Either.isLeft(result)) {
       expect(result.left).toBeInstanceOf(OutputParseFailed);
-      expect(result.left.output).toBe("not-json");
+      expect(result.left.reason).toContain("did not emit a result message");
     }
+  });
+
+  it("maps synchronous SDK startup failures to SpawnFailed", async () => {
+    const query = (() => {
+      throw new Error("could not start Claude");
+    }) as ClaudeQuery;
+    const result = await runTurn(query);
+
+    expect(Either.isLeft(result)).toBe(true);
+    if (Either.isLeft(result)) {
+      expect(result.left).toBeInstanceOf(SpawnFailed);
+      expect(result.left.reason).toBe("could not start Claude");
+    }
+  });
+
+  it("times out long-running SDK sessions and aborts the controller", async () => {
+    let abortCount = 0;
+    const query = (({ options }) => {
+      options?.abortController?.signal.addEventListener("abort", () => {
+        abortCount += 1;
+      });
+
+      return (async function* () {
+        await new Promise<void>((resolve) => {
+          options?.abortController?.signal.addEventListener("abort", () => resolve(), {
+            once: true,
+          });
+        });
+        yield* [];
+      })() as ReturnType<ClaudeQuery>;
+    }) as ClaudeQuery;
+
+    const runner = makeAgentRunner({ query, maxTurns: 1 });
+    const result = await Effect.runPromise(
+      Effect.either(
+        runner.runTurn({
+          prompt: "hang",
+          workspacePath: "/tmp/symphony/ABC-123",
+          timeoutMs: 10,
+        }),
+      ),
+    );
+
+    expect(Either.isLeft(result)).toBe(true);
+    if (Either.isLeft(result)) expect(result.left).toBeInstanceOf(TimedOut);
+    expect(abortCount).toBe(1);
+  });
+
+  it("aborts the SDK session on Effect interruption", async () => {
+    let aborted = false;
+    const query = (({ options }) => {
+      options?.abortController?.signal.addEventListener("abort", () => {
+        aborted = true;
+      });
+
+      return (async function* () {
+        await new Promise<void>((resolve) => {
+          options?.abortController?.signal.addEventListener("abort", () => resolve(), {
+            once: true,
+          });
+        });
+        yield* [];
+      })() as ReturnType<ClaudeQuery>;
+    }) as ClaudeQuery;
+
+    const runner = makeAgentRunner({ query, maxTurns: 1 });
+    const fiber = Effect.runFork(
+      runner.runTurn({
+        prompt: "hang",
+        workspacePath: "/tmp/symphony/ABC-123",
+        timeoutMs: 10_000,
+      }),
+    );
+
+    await Effect.runPromise(Effect.sleep("10 millis"));
+    await Effect.runPromise(Fiber.interrupt(fiber));
+
+    expect(aborted).toBe(true);
   });
 });

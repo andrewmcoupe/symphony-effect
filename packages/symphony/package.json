@@ -17,6 +17,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.161",
     "@effect/cli": "^0.74.0",
     "@effect/platform": "^0.96.0",
     "@effect/platform-node": "^0.99.0",

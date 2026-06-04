@@ -1,6 +1,6 @@
 import { Effect, Fiber, Option } from "effect";
 import { describe, expect, it } from "vitest";
-import type { TurnResult } from "../agent/index.js";
+import type { TurnParams, TurnResult } from "../agent/index.js";
 import { NonZeroExit } from "../agent/index.js";
 import type { PromptVariables, RenderErrorType } from "../config/index.js";
 import type { TrackerClient } from "../tracker/index.js";
@@ -76,6 +76,7 @@ const successTurn = (output = "ok"): TurnResult => ({
   success: true,
   output,
   exitCode: 0,
+  sessionId: `session-${output}`,
   tokensUsed: { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
 });
 
@@ -91,6 +92,7 @@ const makeHookError = (hook: string): HookNonZeroExit =>
 const runWithWorker = (mocks: WorkerMocks = {}) => {
   const hookCalls: string[] = [];
   const prompts: string[] = [];
+  const agentCalls: TurnParams[] = [];
   const workspaces: string[] = [];
   const turns = [...(mocks.turnResults ?? [successTurn()])];
   const trackerStates = [...(mocks.trackerStates ?? ["Done"])];
@@ -128,7 +130,8 @@ const runWithWorker = (mocks: WorkerMocks = {}) => {
   };
 
   const agent: AgentRunner = {
-    runTurn: () => {
+    runTurn: (params) => {
+      agentCalls.push(params);
       if (mocks.turnError !== undefined) return Effect.fail(mocks.turnError);
       return Effect.succeed(turns.shift() ?? successTurn("fallback"));
     },
@@ -159,7 +162,7 @@ const runWithWorker = (mocks: WorkerMocks = {}) => {
 
       const result = yield* worker.runWorker(issue, null);
       const snapshot = yield* stateRef.getSnapshot();
-      return { result, snapshot, hookCalls, prompts, workspaces };
+      return { result, snapshot, agentCalls, hookCalls, prompts, workspaces };
     }).pipe(Effect.provide(OrchestratorStateRefLive)),
   );
 };
@@ -183,6 +186,10 @@ describe("Worker", () => {
     expect(output.workspaces).toEqual(["ABC-1"]);
     expect(output.hookCalls).toEqual(["after_create", "before_run", "after_run"]);
     expect(output.prompts).toEqual(["prompt:ABC-1:first", "prompt:ABC-1:first"]);
+    expect(output.agentCalls.map((call) => call.resumeSessionId)).toEqual([
+      undefined,
+      "session-first",
+    ]);
     expect(output.snapshot.running[0]).toMatchObject({ issueId: "issue-1", turnCount: 2 });
     expect(output.snapshot.tokenTotals).toEqual({
       inputTokens: 20,

@@ -2,6 +2,7 @@ export interface TurnParams {
   readonly prompt: string;
   readonly workspacePath: string;
   readonly timeoutMs: number;
+  readonly resumeSessionId?: string;
 }
 
 export interface TokenUsage {
@@ -16,6 +17,7 @@ export interface TokenUsage {
 export interface TurnResult {
   readonly success: boolean;
   readonly output: string;
-  readonly exitCode: number;
+  readonly exitCode?: number;
+  readonly sessionId?: string;
   readonly tokensUsed?: TokenUsage;
 }

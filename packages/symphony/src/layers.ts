@@ -1,6 +1,6 @@
 import { NodeCommandExecutor, NodeFileSystem } from "@effect/platform-node";
 import { Layer } from "effect";
-import { AgentRunnerLive } from "./agent/index.js";
+import { makeAgentRunnerLive } from "./agent/index.js";
 import { ConfigLoader, PromptRendererLive, type LoadedConfig } from "./config/index.js";
 import { HttpServerLive } from "./observability/index.js";
 import {
@@ -34,7 +34,10 @@ export const makeMainLive = ({
     Layer.provideMerge(tracker),
   );
   const hooks = HookExecutorLive.pipe(Layer.provideMerge(workspace));
-  const agent = AgentRunnerLive.pipe(Layer.provideMerge(hooks));
+  const agent = makeAgentRunnerLive({
+    maxTurns: loaded.config.agent.max_turns,
+    ...(loaded.config.agent.model === undefined ? {} : { model: loaded.config.agent.model }),
+  }).pipe(Layer.provideMerge(hooks));
   const concurrency = makeConcurrencyControllerLive(loaded.config.agent).pipe(
     Layer.provideMerge(agent),
   );

@@ -73,6 +73,7 @@ hooks:
 agent:
   max_concurrent_agents: 1
   max_turns: 8
+  model: claude-sonnet-4-6
   stall_timeout_ms: 120000
   max_retry_backoff_ms: 30000
   max_concurrent_agents_by_state:
