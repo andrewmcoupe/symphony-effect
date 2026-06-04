@@ -10,6 +10,7 @@ import {
 } from "./schema.js";
 
 const ENV_KEY = "SYMPHONY_TEST_API_KEY";
+const GITHUB_ENV_KEY = "SYMPHONY_TEST_GITHUB_TOKEN";
 
 const run = <A, E>(effect: Effect.Effect<A, E>): Either.Either<A, E> =>
   Effect.runSync(Effect.either(effect));
@@ -30,6 +31,7 @@ const baseRaw = () => ({
 
 afterEach(() => {
   delete process.env[ENV_KEY];
+  delete process.env[GITHUB_ENV_KEY];
 });
 
 describe("substituteEnvVars", () => {
@@ -81,6 +83,7 @@ describe("decodeWorkflowConfig", () => {
     const config = (run(decodeWorkflowConfig(baseRaw())) as Either.Right<WorkflowConfig>).right;
     expect(config.tracker.endpoint).toBe("https://api.linear.app/graphql");
     expect(config.polling.interval_ms).toBe(30_000);
+    expect(config.git).toBeUndefined();
     expect(config.hooks.timeout_ms).toBe(60_000);
     expect(config.agent.max_concurrent_agents).toBe(10);
     expect(config.agent.max_turns).toBe(20);
@@ -154,5 +157,84 @@ describe("decodeWorkflowConfig", () => {
     const result = run(decodeWorkflowConfig(raw));
     expect(Either.isLeft(result)).toBe(true);
     expect((result as Either.Left<ValidationFailed>).left).toBeInstanceOf(ValidationFailed);
+  });
+
+  it("parses a valid github git config", () => {
+    process.env[GITHUB_ENV_KEY] = "github-token";
+    const config = (
+      run(
+        decodeWorkflowConfig({
+          ...baseRaw(),
+          git: {
+            kind: "github",
+            token: `$${GITHUB_ENV_KEY}`,
+            repo: "owner/repo",
+            api_base_url: "https://github.example.com/api/v3",
+            base_branch: "trunk",
+            branch_template: "work/{{ issue.identifier }}",
+            draft: true,
+            title_template: "{{ issue.identifier }}",
+            body_template: "{{ issue.url }}",
+          },
+        }),
+      ) as Either.Right<WorkflowConfig>
+    ).right;
+
+    expect(config.git).toEqual({
+      kind: "github",
+      token: "github-token",
+      repo: "owner/repo",
+      api_base_url: "https://github.example.com/api/v3",
+      base_branch: "trunk",
+      branch_template: "work/{{ issue.identifier }}",
+      draft: true,
+      title_template: "{{ issue.identifier }}",
+      body_template: "{{ issue.url }}",
+    });
+  });
+
+  it("applies git config defaults", () => {
+    const config = (
+      run(
+        decodeWorkflowConfig({
+          ...baseRaw(),
+          git: {
+            kind: "github",
+            token: "literal-github-token",
+            repo: "owner/repo",
+          },
+        }),
+      ) as Either.Right<WorkflowConfig>
+    ).right;
+
+    expect(config.git).toEqual({
+      kind: "github",
+      token: "literal-github-token",
+      repo: "owner/repo",
+      api_base_url: "https://api.github.com",
+      base_branch: "main",
+      branch_template: "symphony/{{ issue.identifier }}",
+      draft: false,
+      title_template: "{{ issue.identifier }}: {{ issue.title }}",
+      body_template: "Automated changes for {{ issue.identifier }}.\n\n{{ issue.url }}",
+    });
+  });
+
+  it("fails with MissingEnvVar when git token references an unset var", () => {
+    const result = run(
+      decodeWorkflowConfig({
+        ...baseRaw(),
+        git: {
+          kind: "github",
+          token: `$${GITHUB_ENV_KEY}`,
+          repo: "owner/repo",
+        },
+      }),
+    );
+
+    expect(Either.isLeft(result)).toBe(true);
+    const error = (result as Either.Left<MissingEnvVar>).left;
+    expect(error).toBeInstanceOf(MissingEnvVar);
+    expect(error.varName).toBe(GITHUB_ENV_KEY);
   });
 });

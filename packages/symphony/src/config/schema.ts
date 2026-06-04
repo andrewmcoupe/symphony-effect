@@ -113,6 +113,26 @@ const WorkspaceConfig = Schema.Struct({
   root: PathString,
 });
 
+const GitConfig = Schema.Struct({
+  kind: Schema.Literal("github"),
+  token: EnvString,
+  repo: Schema.String.pipe(Schema.nonEmptyString()),
+  api_base_url: Schema.optionalWith(Schema.String, {
+    default: () => "https://api.github.com",
+  }),
+  base_branch: Schema.optionalWith(Schema.String, { default: () => "main" }),
+  branch_template: Schema.optionalWith(Schema.String, {
+    default: () => "symphony/{{ issue.identifier }}",
+  }),
+  draft: Schema.optionalWith(Schema.Boolean, { default: () => false }),
+  title_template: Schema.optionalWith(Schema.String, {
+    default: () => "{{ issue.identifier }}: {{ issue.title }}",
+  }),
+  body_template: Schema.optionalWith(Schema.String, {
+    default: () => "Automated changes for {{ issue.identifier }}.\n\n{{ issue.url }}",
+  }),
+});
+
 const HooksConfig = Schema.Struct({
   after_create: Schema.optional(Schema.String),
   before_run: Schema.optional(Schema.String),
@@ -142,6 +162,7 @@ export const WorkflowConfig = Schema.Struct({
   tracker: TrackerConfig,
   polling: Schema.optionalWith(PollingConfig, { default: () => ({ interval_ms: 30_000 }) }),
   workspace: WorkspaceConfig,
+  git: Schema.optional(GitConfig),
   hooks: Schema.optionalWith(HooksConfig, { default: () => ({ timeout_ms: 60_000 }) }),
   agent: Schema.optionalWith(AgentConfig, {
     default: () => ({
