@@ -1,4 +1,5 @@
-import { Context, Effect, Fiber, Layer, Ref } from "effect";
+import { Context, Effect, Fiber, Layer, PubSub, Queue, Ref, Scope } from "effect";
+import { makeDomainEventPubSub, type DomainEvent } from "./events.js";
 import {
   claimIssueMutation,
   getSnapshot,
@@ -27,6 +28,8 @@ import type {
 } from "./types.js";
 
 export interface OrchestratorStateRef {
+  readonly events: PubSub.PubSub<DomainEvent>;
+  readonly subscribe: () => Effect.Effect<Queue.Dequeue<DomainEvent>, never, Scope.Scope>;
   readonly claimIssue: (issueId: string, identifier?: string) => Effect.Effect<void>;
   readonly markRunning: (
     issueId: string,
@@ -63,17 +66,36 @@ export const OrchestratorStateRef = Context.GenericTag<OrchestratorStateRef>(
   "symphony/OrchestratorStateRef",
 );
 
+const publishEvent = (
+  events: PubSub.PubSub<DomainEvent>,
+  event: DomainEvent | undefined,
+): Effect.Effect<void> =>
+  event === undefined ? Effect.void : PubSub.publish(events, event).pipe(Effect.asVoid);
+
+const issueStateChanged = (state: OrchestratorState, issueId: string): DomainEvent => ({
+  _tag: "IssueStateChanged",
+  issueId,
+  identifier: resolveIssueIdentifier(state, issueId),
+});
+
 export const makeOrchestratorStateRef = (
   ref: Ref.Ref<OrchestratorState>,
+  events: PubSub.PubSub<DomainEvent>,
 ): OrchestratorStateRef => ({
-  claimIssue: (issueId, identifier) => Ref.update(ref, claimIssueMutation(issueId, identifier)),
+  events,
+  subscribe: () => PubSub.subscribe(events),
+  claimIssue: (issueId, identifier) =>
+    Ref.modify(ref, (state) => {
+      const next = claimIssueMutation(issueId, identifier)(state);
+      return [issueStateChanged(next, issueId), next];
+    }).pipe(Effect.flatMap((event) => publishEvent(events, event))),
   markRunning: (issueId, fiber, identifier, trackerState, attempt) =>
-    Ref.update(ref, (state) => {
+    Ref.modify(ref, (state) => {
       const now = Date.now();
       const existing = state.running.get(issueId);
       const currentTrackerState = trackerState ?? existing?.trackerState;
       const currentAttempt = attempt ?? existing?.attempt;
-      return markRunningMutation({
+      const next = markRunningMutation({
         issueId,
         identifier: identifier ?? resolveIssueIdentifier(state, issueId),
         fiber,
@@ -83,24 +105,62 @@ export const makeOrchestratorStateRef = (
         ...(currentAttempt === undefined ? {} : { attempt: currentAttempt }),
         ...(currentTrackerState === undefined ? {} : { trackerState: currentTrackerState }),
       })(state);
-    }),
+      return [issueStateChanged(next, issueId), next];
+    }).pipe(Effect.flatMap((event) => publishEvent(events, event))),
   markRetryQueued: (issueId, attempt, error, options) =>
-    Ref.update(ref, (state) =>
-      markRetryQueuedMutation({
+    Ref.modify(ref, (state) => {
+      const next = markRetryQueuedMutation({
         issueId,
         identifier: options?.identifier ?? resolveIssueIdentifier(state, issueId),
         attempt,
         dueAt: options?.dueAt ?? Date.now(),
         error,
-      })(state),
+      })(state);
+      return [issueStateChanged(next, issueId), next];
+    }).pipe(Effect.flatMap((event) => publishEvent(events, event))),
+  takeDueRetries: (now) =>
+    Ref.modify(ref, (state) => {
+      const [due, next] = takeDueRetriesMutation(now)(state);
+      const eventEntries = due.map((entry) => ({
+        _tag: "IssueStateChanged" as const,
+        issueId: entry.issueId,
+        identifier: entry.identifier,
+      }));
+      return [{ due, eventEntries }, next];
+    }).pipe(
+      Effect.tap(({ eventEntries }) =>
+        Effect.forEach(eventEntries, (event) => publishEvent(events, event), {
+          discard: true,
+        }),
+      ),
+      Effect.map(({ due }) => due),
     ),
-  takeDueRetries: (now) => Ref.modify(ref, takeDueRetriesMutation(now)),
-  releaseIssue: (issueId) => Ref.update(ref, releaseIssueMutation(issueId)),
+  releaseIssue: (issueId) =>
+    Ref.modify(ref, (state) => {
+      const event = issueStateChanged(state, issueId);
+      const next = releaseIssueMutation(issueId)(state);
+      return [event, next];
+    }).pipe(Effect.flatMap((event) => publishEvent(events, event))),
   updateActivity: (issueId) => Ref.update(ref, updateActivityMutation(issueId)),
   updateTrackerState: (issueId, trackerState) =>
-    Ref.update(ref, updateTrackerStateMutation(issueId, trackerState)),
+    Ref.modify(ref, (state) => {
+      const next = updateTrackerStateMutation(issueId, trackerState)(state);
+      if (next === state) return [undefined, next];
+      return [issueStateChanged(next, issueId), next];
+    }).pipe(Effect.flatMap((event) => publishEvent(events, event))),
   recordTurn: (issueId, trackerState, output) =>
-    Ref.update(ref, recordTurnMutation(issueId, trackerState, output)),
+    Ref.modify(ref, (state) => {
+      const next = recordTurnMutation(issueId, trackerState, output)(state);
+      if (next === state) return [undefined, next];
+      return [
+        {
+          _tag: "TurnRecorded" as const,
+          issueId,
+          identifier: resolveIssueIdentifier(next, issueId),
+        },
+        next,
+      ];
+    }).pipe(Effect.flatMap((event) => publishEvent(events, event))),
   incrementTokens: (usage) => Ref.update(ref, incrementTokensMutation(usage)),
   recordRuntimeConfig: (config) => Ref.update(ref, recordRuntimeConfigMutation(config)),
   recordPoll: (lastPollAt) => Ref.update(ref, recordPollMutation(lastPollAt)),
@@ -125,5 +185,7 @@ export const makeOrchestratorStateRef = (
 
 export const OrchestratorStateRefLive: Layer.Layer<OrchestratorStateRef> = Layer.effect(
   OrchestratorStateRef,
-  Ref.make(initialOrchestratorState).pipe(Effect.map(makeOrchestratorStateRef)),
+  Effect.all([Ref.make(initialOrchestratorState), makeDomainEventPubSub]).pipe(
+    Effect.map(([ref, events]) => makeOrchestratorStateRef(ref, events)),
+  ),
 );
