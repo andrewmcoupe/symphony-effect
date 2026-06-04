@@ -55,9 +55,18 @@ export interface RunningIssue {
   readonly trackerState?: string;
 }
 
+export interface AgentOutputEntry {
+  readonly issueId: string;
+  readonly identifier: string;
+  readonly turnNumber: number;
+  readonly recordedAt: number;
+  readonly output: string;
+}
+
 export interface OrchestratorState {
   readonly running: Map<string, RunningIssue>;
   readonly retryQueue: ReadonlyArray<RetryEntry>;
+  readonly agentOutputs: Map<string, ReadonlyArray<AgentOutputEntry>>;
   readonly tokenTotals: TokenTotals;
   readonly runtimeConfig: RuntimeConfigSnapshot;
   readonly lastPollAt: number | null;
@@ -86,6 +95,7 @@ export interface RunningIssueSnapshot {
   readonly startedAt: number;
   readonly elapsedMs: number;
   readonly lastActivityAt: number;
+  readonly latestAgentOutput?: AgentOutputEntry;
 }
 
 export type IssueClaimSnapshot =
@@ -117,6 +127,7 @@ export type IssueClaimSnapshot =
 export interface OrchestratorSnapshot {
   readonly running: ReadonlyArray<RunningIssueSnapshot>;
   readonly retryQueue: ReadonlyArray<RetryEntry>;
+  readonly agentOutputs: ReadonlyArray<AgentOutputEntry>;
   readonly tokenTotals: TokenTotals;
   readonly runtimeConfig: RuntimeConfigSnapshot;
   readonly lastPollAt: number | null;

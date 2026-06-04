@@ -36,12 +36,14 @@ const stateSnapshot: StateSnapshot = {
   },
   lastPollAt: "2026-01-01T00:00:05.000Z",
   shutdownRequested: false,
+  agentOutputs: [],
 };
 
 const issueDetail: IssueDetail = {
   identifier: "ABC/1",
   status: "idle",
   state: "Todo",
+  agentOutputs: [],
 };
 
 const makeJsonResponse = (body: unknown, init?: ResponseInit): Promise<Response> =>

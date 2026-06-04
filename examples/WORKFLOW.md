@@ -95,7 +95,7 @@ hooks:
     fi
 
     git commit -m "Symphony: ${ISSUE_IDENTIFIER} automated changes"
-    git push -u origin "${WORK_BRANCH}"
+    git push --force-with-lease -u origin "${WORK_BRANCH}"
 
   # Runs before a workspace is removed for a terminal issue.
   before_remove: |
@@ -186,6 +186,14 @@ matching the existing project patterns.
 4. Add or update focused tests when behavior changes.
 5. Run formatting, linting, typechecking, and relevant tests.
 6. Summarize changed files, verification commands, and any residual risk.
+
+## Linear Handoff
+
+When implementation and local verification are complete, use the available
+Linear tooling to move {{ issue.identifier }} to `In Review`. Add a Linear
+comment stating that implementation is complete and Symphony will open a pull
+request for branch `symphony/{{ issue.identifier }}` after this run. Do not move
+the issue to `Done`; human review and merge should do that.
 
 ## Engineering Guidelines
 

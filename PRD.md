@@ -18,6 +18,8 @@ This implementation uses **Claude Code** as the coding agent (instead of OpenAI 
 - Production-hardened deployment (security hardening, container orchestration)
 - SSH worker extension (Appendix A of spec)
 - Multiple tracker implementations (GitHub Issues, Jira) - Linear only initially
+- Multiple git provider implementations - GitHub only initially (abstraction allows future GitLab/Bitbucket)
+- Tracker-side state transitions - the Linear↔GitHub integration moves issues to "In Review", not Symphony
 - Persistent retry queue across restarts (in-memory only per spec)
 
 ---
@@ -41,8 +43,10 @@ This implementation uses **Claude Code** as the coding agent (instead of OpenAI 
 | Core framework | Effect TS |
 | Validation/Schema | Effect Schema |
 | CLI parsing | @effect/cli |
-| Subprocess management | @effect/platform (Command) |
+| Agent invocation | Claude Agent SDK (`@anthropic-ai/claude-agent-sdk`, `query()`) |
+| Subprocess management (hooks) | @effect/platform (Command) |
 | HTTP server | Hono |
+| Git provider (PR creation) | GitHub REST API via `fetch` |
 | YAML parsing | yaml |
 | Front matter extraction | gray-matter |
 | Template rendering | LiquidJS (strict mode) |
@@ -78,6 +82,7 @@ typescript-symphony/
 │   │       ├── index.ts         # Entry point
 │   │       ├── config/          # Workflow loader, typed config, schema
 │   │       ├── tracker/         # Issue tracker abstraction + Linear impl
+│   │       ├── git/             # Git provider abstraction + GitHub PR impl
 │   │       ├── workspace/       # Workspace manager, hooks, path handling
 │   │       ├── agent/           # Agent runner, Claude Code integration
 │   │       ├── orchestrator/    # State machine, polling, dispatch, retries
@@ -150,6 +155,17 @@ interface WorkflowConfig {
   }
   workspace: {
     root: string  // supports ~ and $VAR expansion
+  }
+  git?: {                            // optional; when absent, PR creation is disabled
+    kind: "github"
+    token: string                    // supports $VAR resolution
+    repo: string                     // "owner/name"
+    api_base_url?: string            // default: https://api.github.com (GHE override)
+    base_branch?: string             // default: main
+    branch_template?: string         // default: "symphony/{{ issue.identifier }}" (must match hooks)
+    draft?: boolean                  // default: false
+    title_template?: string          // default: "{{ issue.identifier }}: {{ issue.title }}"
+    body_template?: string           // default: references issue identifier + url
   }
   hooks: {
     after_create?: string   // shell script
@@ -237,25 +253,40 @@ interface BlockerRef {
 
 **Responsibility:** Launch Claude Code subprocess and manage turn execution.
 
-**Invocation:**
+**Invocation:** Claude Agent SDK `query()` (`@anthropic-ai/claude-agent-sdk`),
+one `query()` call per Symphony turn.
 
-```bash
-claude -p "<rendered_prompt>" --output-format json
+```typescript
+query({
+  prompt: renderedPrompt,
+  options: {
+    cwd: workspacePath,
+    permissionMode: "bypassPermissions",
+    maxTurns,                 // caps the agent's internal tool-use loop
+    model,                    // optional, from config
+    resume: priorSessionId,   // undefined on the first turn
+  },
+})
 ```
 
 **Behavior:**
-- Single-turn invocations (each turn is a separate subprocess)
-- Working directory: per-issue workspace path
-- Parse JSON output for result/status
+- One `query()` call per Symphony turn; working directory = per-issue workspace
+- **Session resume** (`options.resume` with the prior `session_id`) carries full
+  context across turns — no re-priming each turn
+- Structured `SDKResultMessage` provides result text, `is_error`, `usage`, and
+  `total_cost_usd` natively (no stdout JSON parsing)
 - Orchestrator decides whether to continue (based on issue state, turn count)
-- Use `@effect/platform` Command for subprocess management
-- Proper cleanup via Effect Scope on interruption
+- Auth via `ANTHROPIC_API_KEY`; the SDK manages the underlying subprocess
+- Effect interruption aborts the session via `AbortController` in a finalizer
 
 **Turn Flow:**
 1. Render prompt template with `{ issue, attempt }` variables
-2. Spawn Claude Code subprocess in workspace directory
-3. Stream/capture stdout, parse JSON result
-4. Return result to orchestrator for decision
+2. Call `query()` in the workspace directory (with `resume` after the first turn)
+3. Consume the message stream; capture `session_id`, result, and usage
+4. Return result (+ `sessionId`) to the orchestrator for its decision
+
+**Concurrency note:** each session is a subprocess with cold-start overhead and a
+practical rate-limit ceiling; keep `max_concurrent_agents` conservative.
 
 ### 5. Orchestrator
 
@@ -333,6 +364,36 @@ GET  /api/v1/state              # Full orchestrator snapshot
 GET  /api/v1/issues/:identifier # Issue-specific details
 POST /api/v1/refresh            # Trigger immediate poll
 ```
+
+### 7. Git Provider (Pull Requests)
+
+**Responsibility:** Open a pull request for an issue's work branch once an agent
+session has pushed changes, abstracting over git hosting providers (GitHub first).
+
+**Interface (abstraction for future providers):**
+
+```typescript
+interface GitProvider {
+  findOpenPullRequest(headBranch: string): Effect<PullRequestRef | null, GitProviderError>
+  ensurePullRequest(params: OpenPullRequestParams): Effect<PullRequestRef | null, GitProviderError>
+}
+```
+
+**Behavior:**
+- GitHub implementation uses the REST API via `fetch` with `$GITHUB_TOKEN` (Bearer auth)
+- `ensurePullRequest` is find-or-create (idempotent — no duplicate PRs across turns)
+- Benign skips return `null`: no commits between base/head, or branch missing on remote
+- Invoked by the orchestrator after `Completed` / `MaxTurnsReached`, once `after_run` has pushed
+- PR creation failures are logged and ignored (never fail dispatch)
+- When the `git` config section is absent, a no-op provider disables PR creation
+
+**In Review transition (out of scope for Symphony):**
+- Symphony does **not** mutate the tracker. It opens a PR that references the
+  issue (via head branch name and/or the issue identifier in the PR body).
+- The user configures Linear's GitHub integration + an automation ("move to
+  In Review when a linked PR is opened") to perform the transition.
+- `In Review` must **not** be listed in `active_states`; once Linear moves the
+  issue there, Symphony's existing state check stops processing it.
 
 **Snapshot Response:**
 
@@ -521,7 +582,13 @@ type SymphonyError =
 - [ ] shadcn/ui components
 - [ ] Overview and issue detail views
 
-### Phase 9: Polish
+### Phase 9: Agent SDK Migration & Pull Request Integration
+- [ ] Migrate agent runner to the Claude Agent SDK (session resume, native usage) — task 030
+- [ ] Git provider abstraction (interface, errors, config) — task 027
+- [ ] GitHub REST pull request client — task 028
+- [ ] Open PR on worker completion + example/docs — task 029
+
+### Phase 10: Polish
 - [ ] Graceful shutdown handling
 - [ ] Error recovery hardening
 - [ ] Documentation
@@ -592,10 +659,11 @@ This is retry attempt {{ attempt }}. The previous attempt failed. Please review 
 
 ## Open Questions
 
-1. **Claude Code output format:** Need to verify exact JSON structure from `--output-format json`
-2. **Turn continuation context:** How to pass context between turns (previous output? accumulated history?)
-3. **Token counting:** How to extract token usage from Claude Code output
+1. ~~**Claude Code output format**~~ — Resolved: the Agent SDK returns typed `SDKResultMessage`s (no stdout parsing). See Agent Runner.
+2. ~~**Turn continuation context**~~ — Resolved: resume by `session_id` carries context across turns (`options.resume`).
+3. ~~**Token counting**~~ — Resolved: `usage` + `total_cost_usd` come from the SDK result message.
 4. **Dashboard authentication:** Should the dashboard require auth? (Probably no for reference impl)
+5. **Agent concurrency ceiling:** What `max_concurrent_agents` is safe given per-session subprocess overhead and API rate limits? (tune empirically)
 
 ---
 

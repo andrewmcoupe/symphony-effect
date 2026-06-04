@@ -44,7 +44,7 @@ describe("HttpServer", () => {
             maxConcurrentAgents: 2,
           });
           yield* state.markRunning("issue-1", makeFiber(), "ABC-1", "Todo");
-          yield* state.recordTurn("issue-1", "In Progress");
+          yield* state.recordTurn("issue-1", "In Progress", "Implemented authentication fix.");
           yield* state.markRetryQueued("issue-2", 3, "rate limited", {
             identifier: "ABC-2",
             dueAt: 1_000,
@@ -84,6 +84,22 @@ describe("HttpServer", () => {
           identifier: "ABC-1",
           turnCount: 1,
           state: "In Progress",
+          latestAgentOutput: {
+            issueId: "issue-1",
+            identifier: "ABC-1",
+            turnNumber: 1,
+            recordedAt: expect.any(String),
+            output: "Implemented authentication fix.",
+          },
+        },
+      ],
+      agentOutputs: [
+        {
+          issueId: "issue-1",
+          identifier: "ABC-1",
+          turnNumber: 1,
+          recordedAt: expect.any(String),
+          output: "Implemented authentication fix.",
         },
       ],
       retrying: [
@@ -141,6 +157,7 @@ describe("HttpServer", () => {
           const state = yield* OrchestratorStateRef;
 
           yield* state.markRunning("issue-1", makeFiber(), "ABC-1", "Todo");
+          yield* state.recordTurn("issue-1", "Todo", "Turn one complete.");
           yield* state.markRetryQueued("issue-2", 2, "failed", {
             identifier: "ABC-2",
             dueAt: 1_000,
@@ -171,10 +188,19 @@ describe("HttpServer", () => {
       status: "running",
       state: "Todo",
       running: {
-        turnCount: 0,
+        turnCount: 1,
         startedAt: expect.any(String),
         elapsedMs: expect.any(Number),
       },
+      agentOutputs: [
+        {
+          issueId: "issue-1",
+          identifier: "ABC-1",
+          turnNumber: 1,
+          recordedAt: expect.any(String),
+          output: "Turn one complete.",
+        },
+      ],
     });
     expect(response.retrying).toEqual({
       identifier: "ABC-2",
@@ -184,8 +210,9 @@ describe("HttpServer", () => {
         dueAt: "1970-01-01T00:00:01.000Z",
         error: "failed",
       },
+      agentOutputs: [],
     });
-    expect(response.idle).toEqual({ identifier: "ABC-3", status: "idle" });
+    expect(response.idle).toEqual({ identifier: "ABC-3", status: "idle", agentOutputs: [] });
     expect(response.missing).toEqual({
       body: { message: "Issue ABC-4 was not found" },
       status: 404,

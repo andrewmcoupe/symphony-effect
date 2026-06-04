@@ -83,14 +83,14 @@ describe("OrchestratorStateRef", () => {
     expect(snapshot.after.running).toHaveLength(1);
   });
 
-  it("records completed turns and latest activity", async () => {
+  it("records completed turns, agent output, and latest activity", async () => {
     const snapshot = await runWithState(
       Effect.gen(function* () {
         const state = yield* OrchestratorStateRef;
         yield* state.markRunning("issue-123", makeFiber(), "ABC-123", "Todo");
         const before = yield* state.getSnapshot();
         yield* Effect.sleep("5 millis");
-        yield* state.recordTurn("issue-123", "In Progress");
+        yield* state.recordTurn("issue-123", "In Progress", "Implemented the fix.");
         yield* state.recordTurn("missing");
         const after = yield* state.getSnapshot();
 
@@ -102,10 +102,49 @@ describe("OrchestratorStateRef", () => {
       issueId: "issue-123",
       turnCount: 1,
       trackerState: "In Progress",
+      latestAgentOutput: {
+        issueId: "issue-123",
+        identifier: "ABC-123",
+        turnNumber: 1,
+        recordedAt: expect.any(Number),
+        output: "Implemented the fix.",
+      },
     });
+    expect(snapshot.after.agentOutputs).toEqual([
+      {
+        issueId: "issue-123",
+        identifier: "ABC-123",
+        turnNumber: 1,
+        recordedAt: expect.any(Number),
+        output: "Implemented the fix.",
+      },
+    ]);
     expect(snapshot.after.running[0]?.lastActivityAt).toBeGreaterThanOrEqual(
       snapshot.before.running[0]?.lastActivityAt ?? 0,
     );
+  });
+
+  it("keeps only recent bounded agent output entries", async () => {
+    const snapshot = await runWithState(
+      Effect.gen(function* () {
+        const state = yield* OrchestratorStateRef;
+        yield* state.markRunning("issue-123", makeFiber(), "ABC-123");
+
+        for (const output of ["one", "two", "three", "four", "five", "six"]) {
+          yield* state.recordTurn("issue-123", undefined, output);
+        }
+
+        return yield* state.getSnapshot();
+      }),
+    );
+
+    expect(snapshot.agentOutputs.map((entry) => entry.output)).toEqual([
+      "two",
+      "three",
+      "four",
+      "five",
+      "six",
+    ]);
   });
 
   it("queues retries, removes running state, and sorts by due date", async () => {

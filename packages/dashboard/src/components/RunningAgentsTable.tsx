@@ -26,6 +26,7 @@ export function RunningAgentsTable({ running }: RunningAgentsTableProps) {
         <TableRow>
           <TableHead>Identifier</TableHead>
           <TableHead>State</TableHead>
+          <TableHead>Latest Output</TableHead>
           <TableHead className="text-right">Turn Count</TableHead>
           <TableHead>Started</TableHead>
           <TableHead>Elapsed</TableHead>
@@ -34,7 +35,7 @@ export function RunningAgentsTable({ running }: RunningAgentsTableProps) {
       <TableBody>
         {running.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+            <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
               No agents running
             </TableCell>
           </TableRow>
@@ -56,6 +57,15 @@ export function RunningAgentsTable({ running }: RunningAgentsTableProps) {
                 </TableCell>
                 <TableCell>
                   <StateBadge state={issue.state} />
+                </TableCell>
+                <TableCell className="max-w-80">
+                  {issue.latestAgentOutput === undefined ? (
+                    <span className="text-sm text-muted-foreground">No output yet</span>
+                  ) : (
+                    <p className="max-h-10 overflow-hidden break-words text-sm leading-5 text-muted-foreground">
+                      {issue.latestAgentOutput.output}
+                    </p>
+                  )}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">{issue.turnCount}</TableCell>
                 <TableCell>

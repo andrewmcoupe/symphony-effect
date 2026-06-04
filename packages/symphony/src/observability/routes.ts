@@ -6,7 +6,7 @@ import type {
   OrchestratorSnapshot,
   OrchestratorStateRefService,
 } from "../orchestrator/index.js";
-import type { IssueDetail, StateSnapshot } from "./types.js";
+import type { AgentOutput, IssueDetail, StateSnapshot } from "./types.js";
 
 interface RoutesOptions {
   readonly stateRef: OrchestratorStateRefService;
@@ -14,6 +14,14 @@ interface RoutesOptions {
 }
 
 const toIsoString = (timestamp: number): string => new Date(timestamp).toISOString();
+
+const toAgentOutput = (entry: OrchestratorSnapshot["agentOutputs"][number]): AgentOutput => ({
+  issueId: entry.issueId,
+  identifier: entry.identifier,
+  turnNumber: entry.turnNumber,
+  recordedAt: toIsoString(entry.recordedAt),
+  output: entry.output,
+});
 
 const toStateSnapshot = (snapshot: OrchestratorSnapshot): StateSnapshot => ({
   running: snapshot.running.map((issue) => ({
@@ -23,6 +31,9 @@ const toStateSnapshot = (snapshot: OrchestratorSnapshot): StateSnapshot => ({
     startedAt: toIsoString(issue.startedAt),
     elapsedMs: issue.elapsedMs,
     state: issue.trackerState ?? "unknown",
+    ...(issue.latestAgentOutput === undefined
+      ? {}
+      : { latestAgentOutput: toAgentOutput(issue.latestAgentOutput) }),
   })),
   retrying: snapshot.retryQueue.map((entry) => ({
     issueId: entry.issueId,
@@ -35,6 +46,7 @@ const toStateSnapshot = (snapshot: OrchestratorSnapshot): StateSnapshot => ({
   config: { ...snapshot.runtimeConfig },
   lastPollAt: snapshot.lastPollAt === null ? null : toIsoString(snapshot.lastPollAt),
   shutdownRequested: snapshot.shutdownRequested,
+  agentOutputs: snapshot.agentOutputs.map(toAgentOutput),
 });
 
 type IssueDetailResult =
@@ -43,6 +55,9 @@ type IssueDetailResult =
 
 const toIssueDetail = (identifier: string, snapshot: OrchestratorSnapshot): IssueDetailResult => {
   const running = snapshot.running.find((issue) => issue.identifier === identifier);
+  const agentOutputs = snapshot.agentOutputs
+    .filter((entry) => entry.identifier === identifier)
+    .map(toAgentOutput);
   if (running !== undefined) {
     return {
       status: 200,
@@ -55,6 +70,7 @@ const toIssueDetail = (identifier: string, snapshot: OrchestratorSnapshot): Issu
           startedAt: toIsoString(running.startedAt),
           elapsedMs: running.elapsedMs,
         },
+        agentOutputs,
       },
     };
   }
@@ -71,6 +87,7 @@ const toIssueDetail = (identifier: string, snapshot: OrchestratorSnapshot): Issu
           dueAt: toIsoString(retry.dueAt),
           error: retry.error,
         },
+        agentOutputs,
       },
     };
   }
@@ -87,6 +104,7 @@ const toIssueDetail = (identifier: string, snapshot: OrchestratorSnapshot): Issu
         ...(claim._tag === "Running" && claim.trackerState !== undefined
           ? { state: claim.trackerState }
           : {}),
+        agentOutputs,
       },
     };
   }

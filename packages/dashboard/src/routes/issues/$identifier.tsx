@@ -2,6 +2,7 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 
 import { ApiError } from "@/api/client";
+import { AgentOutputPanel } from "@/components/AgentOutputPanel";
 import { IdleStatus } from "@/components/IdleStatus";
 import { IssueHeader } from "@/components/IssueHeader";
 import { RetryingStatus } from "@/components/RetryingStatus";
@@ -63,6 +64,7 @@ function IssueDetailPage() {
       {issue.status === "running" ? <RunningStatus issue={issue} /> : null}
       {issue.status === "retrying" ? <RetryingStatus issue={issue} /> : null}
       {issue.status === "idle" ? <IdleStatus issue={issue} /> : null}
+      <AgentOutputPanel outputs={issue.agentOutputs} />
     </section>
   );
 }

@@ -44,7 +44,7 @@ workspace:
 git:
   kind: github
   token: $GITHUB_TOKEN
-  repo: owner/name
+  repo: andrewmcoupe/country-playground-app
   base_branch: main
   branch_template: "symphony/{{ issue.identifier }}"
   draft: false
@@ -67,7 +67,19 @@ hooks:
 
     echo "Creating workspace for ${ISSUE_IDENTIFIER} at ${WORKSPACE_PATH}"
     git clone "${SYMPHONY_REPOSITORY_URL}" .
-    pnpm install
+
+    if [ -f pnpm-lock.yaml ]; then
+      pnpm install --frozen-lockfile
+    elif [ -f package-lock.json ]; then
+      npm ci
+    elif [ -f yarn.lock ]; then
+      yarn install --frozen-lockfile
+    elif [ -f package.json ]; then
+      npm install
+    fi
+
+    # Keep dependency setup from becoming the first committed agent output.
+    git reset --hard
 
   # Runs before each agent session. A non-zero exit aborts this attempt.
   before_run: |
@@ -79,7 +91,19 @@ hooks:
     echo "Preparing ${WORK_BRANCH} from origin/${BASE_BRANCH}"
     git fetch origin "${BASE_BRANCH}" --prune
     git checkout -B "${WORK_BRANCH}" "origin/${BASE_BRANCH}"
-    pnpm install
+
+    if [ -f pnpm-lock.yaml ]; then
+      pnpm install --frozen-lockfile
+    elif [ -f package-lock.json ]; then
+      npm ci
+    elif [ -f yarn.lock ]; then
+      yarn install --frozen-lockfile
+    elif [ -f package.json ]; then
+      npm install
+    fi
+
+    # Revert tracked setup noise, such as Corepack/pnpm packageManager metadata.
+    git reset --hard
 
   # Runs after each agent session. Failures are logged and ignored by Symphony.
   after_run: |
@@ -95,7 +119,7 @@ hooks:
     fi
 
     git commit -m "Symphony: ${ISSUE_IDENTIFIER} automated changes"
-    git push -u origin "${WORK_BRANCH}"
+    git push --force-with-lease -u origin "${WORK_BRANCH}"
 
   # Runs before a workspace is removed for a terminal issue.
   before_remove: |
@@ -107,7 +131,7 @@ hooks:
 # -----------------------------------------------------------------------------
 agent:
   max_concurrent_agents: 5                  # Max parallel agent sessions.
-  max_turns: 15                             # Max Claude Code turns per session.
+  max_turns: 25                             # Max Claude Code turns per session.
   stall_timeout_ms: 300000                  # Abort if the agent stalls for 5 minutes.
   max_retry_backoff_ms: 300000              # Cap retry backoff at 5 minutes.
   max_concurrent_agents_by_state:           # Optional per-state concurrency limits.
@@ -185,6 +209,14 @@ matching the existing project patterns.
 4. Add or update focused tests when behavior changes.
 5. Run formatting, linting, typechecking, and relevant tests.
 6. Summarize changed files, verification commands, and any residual risk.
+
+## Linear Handoff
+
+When implementation and local verification are complete, use the available
+Linear tooling to move {{ issue.identifier }} to `In Review`. Add a Linear
+comment stating that implementation is complete and Symphony will open a pull
+request for branch `symphony/{{ issue.identifier }}` after this run. Do not move
+the issue to `Done`; human review and merge should do that.
 
 ## Engineering Guidelines
 

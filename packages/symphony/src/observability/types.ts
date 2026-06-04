@@ -1,3 +1,11 @@
+export interface AgentOutput {
+  readonly issueId: string;
+  readonly identifier: string;
+  readonly turnNumber: number;
+  readonly recordedAt: string;
+  readonly output: string;
+}
+
 export interface StateSnapshot {
   readonly running: {
     readonly issueId: string;
@@ -6,6 +14,7 @@ export interface StateSnapshot {
     readonly startedAt: string;
     readonly elapsedMs: number;
     readonly state: string;
+    readonly latestAgentOutput?: AgentOutput;
   }[];
   readonly retrying: {
     readonly issueId: string;
@@ -26,6 +35,7 @@ export interface StateSnapshot {
   };
   readonly lastPollAt: string | null;
   readonly shutdownRequested: boolean;
+  readonly agentOutputs: AgentOutput[];
 }
 
 export interface IssueDetail {
@@ -42,6 +52,7 @@ export interface IssueDetail {
     readonly dueAt: string;
     readonly error: string;
   };
+  readonly agentOutputs: AgentOutput[];
 }
 
 export interface HttpServerStartOptions {

@@ -45,7 +45,11 @@ export interface OrchestratorStateRef {
   readonly releaseIssue: (issueId: string) => Effect.Effect<void>;
   readonly updateActivity: (issueId: string) => Effect.Effect<void>;
   readonly updateTrackerState: (issueId: string, trackerState: string) => Effect.Effect<void>;
-  readonly recordTurn: (issueId: string, trackerState?: string) => Effect.Effect<void>;
+  readonly recordTurn: (
+    issueId: string,
+    trackerState?: string,
+    output?: string,
+  ) => Effect.Effect<void>;
   readonly incrementTokens: (usage: TokenUsageDelta) => Effect.Effect<void>;
   readonly recordRuntimeConfig: (config: RuntimeConfigSnapshot) => Effect.Effect<void>;
   readonly recordPoll: (lastPollAt?: number) => Effect.Effect<void>;
@@ -95,7 +99,8 @@ export const makeOrchestratorStateRef = (
   updateActivity: (issueId) => Ref.update(ref, updateActivityMutation(issueId)),
   updateTrackerState: (issueId, trackerState) =>
     Ref.update(ref, updateTrackerStateMutation(issueId, trackerState)),
-  recordTurn: (issueId, trackerState) => Ref.update(ref, recordTurnMutation(issueId, trackerState)),
+  recordTurn: (issueId, trackerState, output) =>
+    Ref.update(ref, recordTurnMutation(issueId, trackerState, output)),
   incrementTokens: (usage) => Ref.update(ref, incrementTokensMutation(usage)),
   recordRuntimeConfig: (config) => Ref.update(ref, recordRuntimeConfigMutation(config)),
   recordPoll: (lastPollAt) => Ref.update(ref, recordPollMutation(lastPollAt)),
@@ -106,6 +111,7 @@ export const makeOrchestratorStateRef = (
       Effect.map((state) => ({
         running: new Map(state.running),
         retryQueue: [...state.retryQueue],
+        agentOutputs: new Map(state.agentOutputs),
         tokenTotals: { ...state.tokenTotals },
         runtimeConfig: { ...state.runtimeConfig },
         lastPollAt: state.lastPollAt,

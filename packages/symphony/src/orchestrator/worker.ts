@@ -232,7 +232,7 @@ export const makeWorker = ({
           if (turn.sessionId !== undefined) yield* Ref.set(sessionIdRef, turn.sessionId);
 
           const turnCount = yield* Ref.updateAndGet(turnCountRef, (count) => count + 1);
-          yield* stateRef.recordTurn(issue.id);
+          yield* stateRef.recordTurn(issue.id, undefined, turn.output);
           if (turn.tokensUsed !== undefined)
             yield* stateRef.incrementTokens(tokenUsageDelta(turn.tokensUsed));
 

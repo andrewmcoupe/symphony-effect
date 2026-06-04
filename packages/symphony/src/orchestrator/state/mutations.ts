@@ -1,4 +1,5 @@
 import type {
+  AgentOutputEntry,
   IssueClaimSnapshot,
   IssueClaimState,
   OrchestratorSnapshot,
@@ -10,6 +11,9 @@ import type {
   TokenTotals,
   TokenUsageDelta,
 } from "./types.js";
+
+const MAX_AGENT_OUTPUT_ENTRIES_PER_ISSUE = 5;
+const MAX_AGENT_OUTPUT_LENGTH = 4_000;
 
 export const initialTokenTotals: TokenTotals = {
   inputTokens: 0,
@@ -26,6 +30,7 @@ export const initialRuntimeConfig: RuntimeConfigSnapshot = {
 export const initialOrchestratorState: OrchestratorState = {
   running: new Map(),
   retryQueue: [],
+  agentOutputs: new Map(),
   tokenTotals: initialTokenTotals,
   runtimeConfig: initialRuntimeConfig,
   lastPollAt: null,
@@ -37,6 +42,7 @@ export const initialOrchestratorState: OrchestratorState = {
 const copyState = (state: OrchestratorState): OrchestratorState => ({
   running: new Map(state.running),
   retryQueue: [...state.retryQueue],
+  agentOutputs: new Map(state.agentOutputs),
   tokenTotals: { ...state.tokenTotals },
   runtimeConfig: { ...state.runtimeConfig },
   lastPollAt: state.lastPollAt,
@@ -54,6 +60,41 @@ const getIdentifier = (state: OrchestratorState, issueId: string, fallback?: str
 
   const retry = state.retryQueue.find((entry) => entry.issueId === issueId);
   return retry?.identifier ?? fallback ?? issueId;
+};
+
+const truncateOutput = (output: string): string =>
+  output.length <= MAX_AGENT_OUTPUT_LENGTH
+    ? output
+    : `${output.slice(0, MAX_AGENT_OUTPUT_LENGTH)}\n\n[truncated]`;
+
+const appendAgentOutput = ({
+  issue,
+  now,
+  output,
+  state,
+  turnNumber,
+}: {
+  readonly issue: RunningIssue;
+  readonly now: number;
+  readonly output: string | undefined;
+  readonly state: OrchestratorState;
+  readonly turnNumber: number;
+}): void => {
+  const normalized = output?.trim();
+  if (normalized === undefined || normalized.length === 0) return;
+
+  const existing = state.agentOutputs.get(issue.issueId) ?? [];
+  const entry: AgentOutputEntry = {
+    issueId: issue.issueId,
+    identifier: issue.identifier,
+    turnNumber,
+    recordedAt: now,
+    output: truncateOutput(normalized),
+  };
+  state.agentOutputs.set(
+    issue.issueId,
+    [...existing, entry].slice(-MAX_AGENT_OUTPUT_ENTRIES_PER_ISSUE),
+  );
 };
 
 export const claimIssueMutation =
@@ -130,6 +171,7 @@ export const releaseIssueMutation =
     const next = copyState(state);
     next.identifiers?.delete(issueId);
     next.claims?.delete(issueId);
+    next.agentOutputs.delete(issueId);
     next.running.delete(issueId);
     return {
       ...next,
@@ -159,18 +201,20 @@ export const updateActivityMutation =
   };
 
 export const recordTurnMutation =
-  (issueId: string, trackerState?: string, now = Date.now()) =>
+  (issueId: string, trackerState?: string, output?: string, now = Date.now()) =>
   (state: OrchestratorState): OrchestratorState => {
     const running = state.running.get(issueId);
     if (running === undefined) return state;
 
     const next = copyState(state);
+    const turnNumber = running.turnCount + 1;
     const updated: RunningIssue = {
       ...running,
-      turnCount: running.turnCount + 1,
+      turnCount: turnNumber,
       lastActivityAt: now,
       ...(trackerState === undefined ? {} : { trackerState }),
     };
+    appendAgentOutput({ issue: updated, now, output, state: next, turnNumber });
     next.running.set(issueId, updated);
     next.claims?.set(issueId, {
       _tag: "Running",
@@ -278,20 +322,25 @@ const toClaimSnapshot = (
 };
 
 const toRunningSnapshot =
-  (now: number) =>
-  (issue: RunningIssue): RunningIssueSnapshot => ({
-    issueId: issue.issueId,
-    identifier: issue.identifier,
-    ...(issue.trackerState === undefined ? {} : { trackerState: issue.trackerState }),
-    turnCount: issue.turnCount,
-    startedAt: issue.startedAt,
-    elapsedMs: Math.max(0, now - issue.startedAt),
-    lastActivityAt: issue.lastActivityAt,
-  });
+  (state: OrchestratorState, now: number) =>
+  (issue: RunningIssue): RunningIssueSnapshot => {
+    const latestAgentOutput = state.agentOutputs.get(issue.issueId)?.at(-1);
+    return {
+      issueId: issue.issueId,
+      identifier: issue.identifier,
+      ...(issue.trackerState === undefined ? {} : { trackerState: issue.trackerState }),
+      turnCount: issue.turnCount,
+      startedAt: issue.startedAt,
+      elapsedMs: Math.max(0, now - issue.startedAt),
+      lastActivityAt: issue.lastActivityAt,
+      ...(latestAgentOutput === undefined ? {} : { latestAgentOutput }),
+    };
+  };
 
 export const getSnapshot = (state: OrchestratorState, now = Date.now()): OrchestratorSnapshot => ({
-  running: Array.from(state.running.values()).map(toRunningSnapshot(now)),
+  running: Array.from(state.running.values()).map(toRunningSnapshot(state, now)),
   retryQueue: [...state.retryQueue],
+  agentOutputs: Array.from(state.agentOutputs.values()).flat(),
   tokenTotals: { ...state.tokenTotals },
   runtimeConfig: { ...state.runtimeConfig },
   lastPollAt: state.lastPollAt,
