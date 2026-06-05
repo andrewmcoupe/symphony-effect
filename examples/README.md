@@ -11,6 +11,8 @@ repository URL, Linear project slug, states, and workspace paths.
   preparing, committing, and pushing work.
 - `WORKFLOW.minimal.md` is the smallest practical Linear-backed workflow. It
   relies on defaults for polling, hooks, and agent limits.
+- `WORKFLOW.openai.md` demonstrates the OpenAI Agents SDK backend with
+  `agent.provider: openai`.
 - `WORKFLOW.local.md` is for local development without the Linear service or a
   remote repository. It points at a loopback GraphQL endpoint so you can run the
   orchestrator against a local Linear-shaped stub, and its hooks copy from a
@@ -23,7 +25,10 @@ these while loading the workflow and fails fast if any referenced variable is
 missing.
 
 - `LINEAR_API_KEY`: Linear API token for the full and minimal examples.
-- `ANTHROPIC_API_KEY`: Anthropic API key used by the Claude Agent SDK.
+- `ANTHROPIC_API_KEY`: Anthropic API key used by the Claude Agent SDK when
+  `agent.provider` is omitted or set to `anthropic`.
+- `OPENAI_API_KEY`: OpenAI API key used by the OpenAI Agents SDK when
+  `agent.provider` is `openai`.
 - `GITHUB_TOKEN`: GitHub token for the full example's `git` provider. Needs repo
   scope (classic) or `pull_requests:write` + `contents:read`.
 - `SYMPHONY_REPOSITORY_URL`: Git URL cloned by the full example.

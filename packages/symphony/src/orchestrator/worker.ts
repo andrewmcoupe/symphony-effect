@@ -106,8 +106,8 @@ const failedAgentResult = (issue: Issue, result: TurnResult): AgentFailed =>
     reason:
       result.output ||
       (result.exitCode === undefined
-        ? "Claude Code reported an unsuccessful turn"
-        : `Claude Code reported an unsuccessful turn with exit code ${result.exitCode}`),
+        ? "Agent reported an unsuccessful turn"
+        : `Agent reported an unsuccessful turn with exit code ${result.exitCode}`),
   });
 
 const fetchIssueState = ({

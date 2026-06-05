@@ -5,7 +5,7 @@ export class SpawnFailed extends Data.TaggedError("AgentError.SpawnFailed")<{
   readonly reason: string;
 }> {
   override get message(): string {
-    return `Failed to spawn Claude Code in ${this.workspacePath}: ${this.reason}`;
+    return `Failed to spawn agent in ${this.workspacePath}: ${this.reason}`;
   }
 }
 
@@ -14,7 +14,7 @@ export class TimedOut extends Data.TaggedError("AgentError.TimedOut")<{
   readonly timeoutMs: number;
 }> {
   override get message(): string {
-    return `Claude Code timed out after ${this.timeoutMs}ms in ${this.workspacePath}`;
+    return `Agent timed out after ${this.timeoutMs}ms in ${this.workspacePath}`;
   }
 }
 
@@ -24,7 +24,7 @@ export class OutputParseFailed extends Data.TaggedError("AgentError.OutputParseF
   readonly reason: string;
 }> {
   override get message(): string {
-    return `Failed to parse Claude Code JSON output in ${this.workspacePath}: ${this.reason}`;
+    return `Failed to parse agent output in ${this.workspacePath}: ${this.reason}`;
   }
 }
 
@@ -35,7 +35,7 @@ export class NonZeroExit extends Data.TaggedError("AgentError.NonZeroExit")<{
   readonly stderr: string;
 }> {
   override get message(): string {
-    return `Claude Code exited with code ${this.exitCode} in ${this.workspacePath}`;
+    return `Agent exited with code ${this.exitCode} in ${this.workspacePath}`;
   }
 }
 

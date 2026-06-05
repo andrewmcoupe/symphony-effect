@@ -1,7 +1,12 @@
 import { NodeCommandExecutor, NodeFileSystem } from "@effect/platform-node";
-import { Layer } from "effect";
+import { Effect, Layer } from "effect";
 import { makeAgentRunnerLive } from "./agent/index.js";
-import { ConfigLoader, PromptRendererLive, type LoadedConfig } from "./config/index.js";
+import {
+  ConfigLoader,
+  MissingEnvVar,
+  PromptRendererLive,
+  type LoadedConfig,
+} from "./config/index.js";
 import { makeGitProviderLive } from "./git/index.js";
 import { HttpServerLive } from "./observability/index.js";
 import {
@@ -13,6 +18,23 @@ import {
 } from "./orchestrator/index.js";
 import { makeLinearClientLive } from "./tracker/index.js";
 import { HookExecutorLive, makeWorkspaceManagerLive } from "./workspace/index.js";
+
+const providerApiKey = (provider: LoadedConfig["config"]["agent"]["provider"]): string =>
+  provider === "openai" ? "OPENAI_API_KEY" : "ANTHROPIC_API_KEY";
+
+const makeSelectedProviderAuthLive = (
+  provider: LoadedConfig["config"]["agent"]["provider"],
+): Layer.Layer<never, MissingEnvVar> => {
+  const varName = providerApiKey(provider);
+  return Layer.effectDiscard(
+    Effect.sync(() => process.env[varName]).pipe(
+      Effect.filterOrFail(
+        (value) => value !== undefined && value.length > 0,
+        () => new MissingEnvVar({ varName }),
+      ),
+    ),
+  );
+};
 
 export const makeMainLive = ({
   loaded,
@@ -36,7 +58,9 @@ export const makeMainLive = ({
     Layer.provideMerge(git),
   );
   const hooks = HookExecutorLive.pipe(Layer.provideMerge(workspace));
+  const providerAuth = makeSelectedProviderAuthLive(loaded.config.agent.provider);
   const agent = makeAgentRunnerLive({
+    provider: loaded.config.agent.provider,
     maxTurns: loaded.config.agent.max_turns,
     ...(loaded.config.agent.model === undefined ? {} : { model: loaded.config.agent.model }),
     ...(loaded.config.agent.mcp_servers === undefined
@@ -45,7 +69,7 @@ export const makeMainLive = ({
     ...(loaded.config.agent.allowed_tools === undefined
       ? {}
       : { allowedTools: loaded.config.agent.allowed_tools }),
-  }).pipe(Layer.provideMerge(hooks));
+  }).pipe(Layer.provideMerge(hooks), Layer.provideMerge(providerAuth));
   const concurrency = makeConcurrencyControllerLive(loaded.config.agent).pipe(
     Layer.provideMerge(agent),
   );

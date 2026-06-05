@@ -7,8 +7,8 @@ so a reader can start from a concept and find the code that implements it.
 The upstream Symphony spec describes a long-running orchestrator that polls a
 tracker, claims work, prepares an isolated workspace, runs an agent, records
 state, retries failures, and cleans up terminal work. This repo implements that
-shape in TypeScript with Effect, Linear, GitHub pull requests, and the Claude
-Agent SDK.
+shape in TypeScript with Effect, Linear, GitHub pull requests, and native
+Anthropic/OpenAI agent SDK backends.
 
 ## Start Here
 
@@ -18,6 +18,8 @@ Agent SDK.
   layers, service boundaries, and startup flow.
 - [Workflow Configuration](./workflow-configuration.md): `WORKFLOW.md`,
   front matter schema, prompt rendering, hooks, git, and MCP agent settings.
+- [Provider Compatibility](./provider-compatibility.md): Anthropic/OpenAI
+  backend behavior, auth, usage reporting, continuation, and tool policy notes.
 - [Worker Lifecycle](./worker-lifecycle.md): workspace creation, hooks, agent
   turns, PR creation, status handoff, and cleanup.
 - [State, Retries, and Concurrency](./state-retries-concurrency.md): in-memory
@@ -51,4 +53,3 @@ For a new maintainer, read in this order:
 
 Then branch out into integrations, observability, or operations depending on
 the change you need to make.
-

@@ -21,6 +21,8 @@ String fields that contain secrets support `$VAR` and `${VAR}` expansion.
 
 Missing variables fail fast as config errors. This is intentional: a worker
 should not start with missing tracker, git, repository, or MCP credentials.
+Provider API keys are checked at startup from the selected `agent.provider`:
+Anthropic requires `ANTHROPIC_API_KEY`; OpenAI requires `OPENAI_API_KEY`.
 
 ## Main Sections
 
@@ -61,8 +63,24 @@ commit, and push repository changes.
 
 ## Agent MCP Configuration
 
-`agent.mcp_servers` is passed to the Claude Agent SDK as `mcpServers`.
-`agent.allowed_tools` is passed as `allowedTools`.
+`agent.provider` selects the agent backend. Supported values are:
+
+- `anthropic` (default): runs through the Anthropic Claude Agent SDK and
+  requires `ANTHROPIC_API_KEY`.
+- `openai`: runs through the OpenAI Agents SDK and requires `OPENAI_API_KEY`.
+
+`agent.model` is interpreted in the selected provider's model namespace. For
+example, Anthropic workflows use Claude model ids such as
+`claude-sonnet-4-6`; OpenAI workflows use OpenAI model ids such as `gpt-5.1`.
+Omit `agent.model` to use the selected SDK's default.
+
+`agent.mcp_servers` is passed to the selected agent SDK as MCP server config,
+and `agent.allowed_tools` limits which tools the backend exposes. Both fields
+apply to Anthropic and OpenAI.
+
+For remote MCP server tool policies, OpenAI treats `always_ask` the same as
+`always_deny`. Symphony is non-interactive during a Turn, so there is no
+operator approval prompt to answer.
 
 This is how the workflow can make tracker tools, such as Linear MCP, available
 to the agent while staying aligned with the prompt-driven handoff model.
@@ -76,3 +94,5 @@ Supported MCP server config shapes:
 The current workflow uses Linear's hosted HTTP MCP server and injects
 `LINEAR_API_KEY` through an Authorization header.
 
+See [`Provider Compatibility`](./provider-compatibility.md) for the current
+per-provider validation notes.

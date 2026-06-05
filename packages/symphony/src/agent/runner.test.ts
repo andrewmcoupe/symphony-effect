@@ -60,6 +60,7 @@ const runTurn = (query: ClaudeQuery, config: Partial<AgentRunnerConfig> = {}) =>
   const runner = makeAgentRunner({
     query,
     maxTurns: config.maxTurns ?? 7,
+    provider: config.provider ?? "anthropic",
     model: config.model ?? "claude-sonnet-4-6",
     ...(config.mcpServers === undefined ? {} : { mcpServers: config.mcpServers }),
     ...(config.allowedTools === undefined ? {} : { allowedTools: config.allowedTools }),
@@ -180,7 +181,7 @@ describe("AgentRunner", () => {
       })() as ReturnType<ClaudeQuery>;
     }) as ClaudeQuery;
 
-    const runner = makeAgentRunner({ query, maxTurns: 1 });
+    const runner = makeAgentRunner({ query, maxTurns: 1, provider: "anthropic" });
     const result = await Effect.runPromise(
       Effect.either(
         runner.runTurn({
@@ -213,7 +214,7 @@ describe("AgentRunner", () => {
       })() as ReturnType<ClaudeQuery>;
     }) as ClaudeQuery;
 
-    const runner = makeAgentRunner({ query, maxTurns: 1 });
+    const runner = makeAgentRunner({ query, maxTurns: 1, provider: "anthropic" });
     const fiber = Effect.runFork(
       runner.runTurn({
         prompt: "hang",
@@ -226,5 +227,34 @@ describe("AgentRunner", () => {
     await Effect.runPromise(Fiber.interrupt(fiber));
 
     expect(aborted).toBe(true);
+  });
+
+  it("selects the OpenAI backend without invoking the Claude query seam", async () => {
+    const calls: QueryCall[] = [];
+    const openAiCalls: string[] = [];
+    const runner = makeAgentRunner({
+      query: makeFakeQuery([initMessage(), resultMessage()], calls),
+      openAiRun: async (_agent, input) => {
+        openAiCalls.push(input);
+        return { finalOutput: "openai done", lastResponseId: "resp-1" };
+      },
+      maxTurns: 7,
+      provider: "openai",
+      model: "gpt-5.1",
+    });
+    const result = await Effect.runPromise(
+      Effect.either(
+        runner.runTurn({
+          prompt: "Fix the auth bug",
+          workspacePath: "/tmp/symphony/ABC-123",
+          timeoutMs: 100,
+        }),
+      ),
+    );
+
+    expect(Either.isRight(result)).toBe(true);
+    if (Either.isRight(result)) expect(result.right.output).toBe("openai done");
+    expect(calls).toHaveLength(0);
+    expect(openAiCalls).toEqual(["Fix the auth bug"]);
   });
 });

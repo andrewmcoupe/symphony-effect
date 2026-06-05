@@ -102,6 +102,9 @@ importers:
       '@hono/node-server':
         specifier: ^1.19.7
         version: 1.19.14(hono@4.12.23)
+      '@openai/agents':
+        specifier: ^0.11.6
+        version: 0.11.6(ws@8.21.0)(zod@4.4.3)
       effect:
         specifier: ^3.19.0
         version: 3.21.2
@@ -839,6 +842,29 @@ packages:
     peerDependencies:
       '@emnapi/core': ^1.7.1
       '@emnapi/runtime': ^1.7.1
+
+  '@openai/agents-core@0.11.6':
+    resolution: {integrity: sha512-jWeo4mF+zjp9R80OPg+9prAnwF53dIpok2ymp9OkC3DpK2qcqBO8CfoEgocNp+E5HXXFW4uvCaY0olNCCcmTFw==}
+    peerDependencies:
+      zod: ^4.0.0
+    peerDependenciesMeta:
+      zod:
+        optional: true
+
+  '@openai/agents-openai@0.11.6':
+    resolution: {integrity: sha512-63zXy+EPmg3WErLO12jLEjCTqGBZ/f0ApsW/t5wpccqUYCtImIT6IYZDgGM+zSEafHNGJmNOwGtEqHjz/Pyl+A==}
+    peerDependencies:
+      zod: ^4.0.0
+
+  '@openai/agents-realtime@0.11.6':
+    resolution: {integrity: sha512-jw4lLO6B2xyCBtgLtAXZmqhjEAqSLO1EtJzfwfrZuzGpPgs4nJBQ+O7ybtdPPKt8iWdIOlrYRDqxhBHv7Qqo7w==}
+    peerDependencies:
+      zod: ^4.0.0
+
+  '@openai/agents@0.11.6':
+    resolution: {integrity: sha512-YLwycYJQ65ETEq1SzjdFO6U9VhWHOKKIVh6wZCd/FmTZoqYq9UF/5uvX+wF8cZ58J+wIyyLynPdCmzEEov2rhw==}
+    peerDependencies:
+      zod: ^4.0.0
 
   '@oxc-project/types@0.133.0':
     resolution: {integrity: sha512-KzkdCd6Uxqnf6l3HOw1xfatAlUURA0g14cvBYFyJ5SaNOQbOUvBr9PKArcPcrNIeRsBdgcUzOGrhKveVpvOIGA==}
@@ -1643,6 +1669,9 @@ packages:
   '@types/react@19.2.16':
     resolution: {integrity: sha512-esJiCAnl0kfpNdE69f3So4WJUXy95dLZydX0KwK46riIHDzHM7O9Vtf9xCHW0PXIqvgqNrswl522kA/5yx+F4w==}
 
+  '@types/ws@8.18.1':
+    resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
+
   '@vitejs/plugin-react@6.0.2':
     resolution: {integrity: sha512-DlSMqo4WhThw4vB8Mpn0Woe9J+Jfq1geJ61AKW0QEgLzGMNwtIMdxbDUzLxcun8W7NbJO0e2Jg/Nxm3cCSVzzg==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -2356,6 +2385,17 @@ packages:
 
   once@1.4.0:
     resolution: {integrity: sha512-lNaJgI+2Q5URQBkccEKHTQOPaXdUxnZZElQTZY0MFUAuaEqe1E+Nyvgdz/aIyNi6Z9MzO5dv1H8n58/GELp3+w==}
+
+  openai@6.42.0:
+    resolution: {integrity: sha512-1WFEt/uXMXOLhYRNkgJWo08Y2YNvNwpVU72K7ibrWgWpNOXd4VojXLbe6SQ4bLiUQ3Y8jz4IiyVkylJCL1DtZg==}
+    peerDependencies:
+      ws: ^8.18.0
+      zod: ^3.25 || ^4.0
+    peerDependenciesMeta:
+      ws:
+        optional: true
+      zod:
+        optional: true
 
   oxfmt@0.53.0:
     resolution: {integrity: sha512-9cB5glS3Ip6NMuZ+6NYTao9FCWkDhRtPYCtR3QBu/NxHoFbgzzTvi41N4jxz/GqGfuLKspui1qb/LlSu2IbMcw==}
@@ -3482,6 +3522,57 @@ snapshots:
       '@tybys/wasm-util': 0.10.2
     optional: true
 
+  '@openai/agents-core@0.11.6(ws@8.21.0)(zod@4.4.3)':
+    dependencies:
+      debug: 4.4.3
+      openai: 6.42.0(ws@8.21.0)(zod@4.4.3)
+    optionalDependencies:
+      '@modelcontextprotocol/sdk': 1.29.0(zod@4.4.3)
+      zod: 4.4.3
+    transitivePeerDependencies:
+      - '@cfworker/json-schema'
+      - supports-color
+      - ws
+
+  '@openai/agents-openai@0.11.6(ws@8.21.0)(zod@4.4.3)':
+    dependencies:
+      '@openai/agents-core': 0.11.6(ws@8.21.0)(zod@4.4.3)
+      debug: 4.4.3
+      openai: 6.42.0(ws@8.21.0)(zod@4.4.3)
+      zod: 4.4.3
+    transitivePeerDependencies:
+      - '@cfworker/json-schema'
+      - supports-color
+      - ws
+
+  '@openai/agents-realtime@0.11.6(zod@4.4.3)':
+    dependencies:
+      '@openai/agents-core': 0.11.6(ws@8.21.0)(zod@4.4.3)
+      '@types/ws': 8.18.1
+      debug: 4.4.3
+      ws: 8.21.0
+      zod: 4.4.3
+    transitivePeerDependencies:
+      - '@cfworker/json-schema'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+
+  '@openai/agents@0.11.6(ws@8.21.0)(zod@4.4.3)':
+    dependencies:
+      '@openai/agents-core': 0.11.6(ws@8.21.0)(zod@4.4.3)
+      '@openai/agents-openai': 0.11.6(ws@8.21.0)(zod@4.4.3)
+      '@openai/agents-realtime': 0.11.6(zod@4.4.3)
+      debug: 4.4.3
+      openai: 6.42.0(ws@8.21.0)(zod@4.4.3)
+      zod: 4.4.3
+    transitivePeerDependencies:
+      - '@cfworker/json-schema'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+
   '@oxc-project/types@0.133.0': {}
 
   '@oxfmt/binding-android-arm-eabi@0.53.0':
@@ -4008,6 +4099,10 @@ snapshots:
   '@types/react@19.2.16':
     dependencies:
       csstype: 3.2.3
+
+  '@types/ws@8.18.1':
+    dependencies:
+      '@types/node': 22.19.19
 
   '@vitejs/plugin-react@6.0.2(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))':
     dependencies:
@@ -4714,6 +4809,11 @@ snapshots:
   once@1.4.0:
     dependencies:
       wrappy: 1.0.2
+
+  openai@6.42.0(ws@8.21.0)(zod@4.4.3):
+    optionalDependencies:
+      ws: 8.21.0
+      zod: 4.4.3
 
   oxfmt@0.53.0:
     dependencies:

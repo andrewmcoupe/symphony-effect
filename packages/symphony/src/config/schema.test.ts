@@ -89,6 +89,7 @@ describe("decodeWorkflowConfig", () => {
     expect(config.hooks.timeout_ms).toBe(60_000);
     expect(config.agent.max_concurrent_agents).toBe(10);
     expect(config.agent.max_turns).toBe(20);
+    expect(config.agent.provider).toBe("anthropic");
     expect(config.agent.model).toBeUndefined();
     expect(config.agent.stall_timeout_ms).toBe(300_000);
     expect(config.agent.max_retry_backoff_ms).toBe(300_000);
@@ -101,15 +102,28 @@ describe("decodeWorkflowConfig", () => {
         decodeWorkflowConfig({
           ...raw,
           polling: { interval_ms: 5_000 },
-          agent: { max_turns: 3, model: "claude-sonnet-4-6" },
+          agent: { max_turns: 3, provider: "openai", model: "gpt-5.1" },
         }),
       ) as Either.Right<WorkflowConfig>
     ).right;
     expect(config.polling.interval_ms).toBe(5_000);
     expect(config.agent.max_turns).toBe(3);
-    expect(config.agent.model).toBe("claude-sonnet-4-6");
+    expect(config.agent.provider).toBe("openai");
+    expect(config.agent.model).toBe("gpt-5.1");
     expect(config.agent.max_concurrent_agents).toBe(10);
     expect(config.agent.stall_timeout_ms).toBe(300_000);
+  });
+
+  it("rejects an unsupported agent provider", () => {
+    const result = run(
+      decodeWorkflowConfig({
+        ...baseRaw(),
+        agent: { provider: "local" },
+      }),
+    );
+
+    expect(Either.isLeft(result)).toBe(true);
+    expect((result as Either.Left<ValidationFailed>).left).toBeInstanceOf(ValidationFailed);
   });
 
   it("parses agent MCP servers and allowed tools", () => {
