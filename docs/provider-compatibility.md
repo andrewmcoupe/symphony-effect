@@ -24,8 +24,15 @@ Symphony selects exactly one agent Provider per workflow through
 - Backend: OpenAI Agents SDK.
 - Auth: requires `OPENAI_API_KEY` when `agent.provider` is `openai`.
 - Model namespace: OpenAI model ids, for example `gpt-5.1`.
+- Workspace access: runs as an OpenAI Sandbox Agent with Symphony's per-Issue
+  workspace mounted at `/workspace/repo`, so filesystem and shell tool changes
+  are made in the existing workspace.
 - MCP tools: `agent.mcp_servers` and `agent.allowed_tools` are adapted to the
-  OpenAI Agents SDK MCP server API.
+  OpenAI Agents SDK MCP server API. Configured MCP servers connect strictly; a
+  failed server fails the Turn instead of being silently omitted. Before the
+  model runs, Symphony verifies that the configured MCP servers expose at least
+  one visible tool and adds the visible tool names to the OpenAI agent
+  instructions.
 - Tool policy: `always_ask` is treated as deny, matching `always_deny`, because
   Symphony runs non-interactively and has no operator approval prompt during a
   Turn.
@@ -48,4 +55,3 @@ real Issue with `agent.provider: openai` and confirm:
 - `TurnRecorded` Agent Output is populated,
 - `TokenTotalsChanged` reflects real usage,
 - the response id returned from one Turn resumes the next Turn.
-

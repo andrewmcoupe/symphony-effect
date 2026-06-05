@@ -1,4 +1,4 @@
-import type { Agent as OpenAiAgent, NonStreamRunOptions } from "@openai/agents";
+import type { Agent as OpenAiAgent, MCPServer, NonStreamRunOptions } from "@openai/agents";
 import { Effect, Either, Fiber } from "effect";
 import { describe, expect, it } from "vitest";
 import { NonZeroExit, OutputParseFailed, SpawnFailed, TimedOut } from "./errors.js";
@@ -15,9 +15,29 @@ interface RunCall {
   readonly options: NonStreamRunOptions | undefined;
 }
 
+const mcpTool = (name: string) => ({
+  name,
+  inputSchema: {
+    type: "object" as const,
+    properties: {},
+    required: [],
+    additionalProperties: false,
+  },
+});
+
+const fakeConnectedServers = (servers: MCPServer[]): MCPServer[] =>
+  servers.map((server) =>
+    Object.assign(server, {
+      listTools: async () =>
+        server.name === "linear"
+          ? [mcpTool("safe"), mcpTool("ask"), mcpTool("deny"), mcpTool("other")]
+          : [mcpTool("list")],
+    }),
+  );
+
 const runTurn = (run: OpenAiRun) => {
   const connectMcpServers: OpenAiConnectMcpServers = async (servers) => ({
-    active: servers,
+    active: fakeConnectedServers(servers),
     close: async () => undefined,
   });
   const runner = makeOpenAiAgentRunner({
@@ -107,11 +127,146 @@ describe("makeOpenAiAgentRunner", () => {
     expect(calls[0]?.agent.model).toBe("gpt-5.1");
     expect(calls[0]?.agent.mcpServers).toHaveLength(2);
     expect(calls[0]?.agent.mcpConfig).toEqual({ includeServerInToolNames: true });
+    expect(calls[0]?.agent.constructor.name).toBe("SandboxAgent");
+    expect(calls[0]?.agent.instructions).toContain("/workspace/repo");
+    expect(calls[0]?.agent.instructions).toContain("Available MCP tools");
+    expect(calls[0]?.agent.instructions).toContain("mcp_linear__safe");
+    expect(calls[0]?.agent).toMatchObject({
+      defaultManifest: {
+        root: "/workspace",
+        entries: {
+          repo: {
+            type: "mount",
+            source: "/tmp/symphony/ABC-123",
+            readOnly: false,
+            mountStrategy: { type: "local_bind" },
+          },
+        },
+      },
+    });
     expect(calls[0]?.options).toMatchObject({
       maxTurns: 5,
       previousResponseId: "resp-prev",
+      sandbox: {
+        client: {
+          backendId: "unix_local",
+        },
+      },
     });
     expect(calls[0]?.options?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("connects configured MCP servers strictly so failed servers are not silently dropped", async () => {
+    const options: unknown[] = [];
+    const runner = makeOpenAiAgentRunner({
+      run: async () => ({ finalOutput: "done" }),
+      connectMcpServers: async (servers, connectOptions) => {
+        options.push(connectOptions);
+        return {
+          active: fakeConnectedServers(servers),
+          close: async () => undefined,
+        };
+      },
+      maxTurns: 5,
+      mcpServers: {
+        linear: {
+          type: "http",
+          url: "https://mcp.linear.app/mcp",
+          headers: {
+            Authorization: "Bearer linear-token",
+          },
+        },
+      },
+    });
+
+    const result = await Effect.runPromise(
+      Effect.either(
+        runner.runTurn({
+          prompt: "Fix the auth bug",
+          workspacePath: "/tmp/symphony/ABC-123",
+          timeoutMs: 100,
+        }),
+      ),
+    );
+
+    expect(Either.isRight(result)).toBe(true);
+    expect(options).toEqual([{ strict: true, dropFailed: false }]);
+  });
+
+  it("allows MCP tools when an allow-list is configured without blocked tools", async () => {
+    const calls: RunCall[] = [];
+    const runner = makeOpenAiAgentRunner({
+      run: makeFakeRun({ finalOutput: "done" }, calls),
+      connectMcpServers: async (servers) => ({
+        active: fakeConnectedServers(servers),
+        close: async () => undefined,
+      }),
+      maxTurns: 5,
+      mcpServers: {
+        linear: {
+          type: "http",
+          url: "https://mcp.linear.app/mcp",
+          headers: {
+            Authorization: "Bearer linear-token",
+          },
+        },
+      },
+      allowedTools: ["mcp__linear__*"],
+    });
+
+    const result = await Effect.runPromise(
+      Effect.either(
+        runner.runTurn({
+          prompt: "Fix the auth bug",
+          workspacePath: "/tmp/symphony/ABC-123",
+          timeoutMs: 100,
+        }),
+      ),
+    );
+
+    expect(Either.isRight(result)).toBe(true);
+    expect(calls[0]?.agent.instructions).toContain("mcp_linear__safe");
+  });
+
+  it("fails before the model runs when configured MCP servers expose no visible tools", async () => {
+    let ran = false;
+    const runner = makeOpenAiAgentRunner({
+      run: async () => {
+        ran = true;
+        return { finalOutput: "done" };
+      },
+      connectMcpServers: async (servers) => ({
+        active: servers.map((server) => Object.assign(server, { listTools: async () => [] })),
+        close: async () => undefined,
+      }),
+      maxTurns: 5,
+      mcpServers: {
+        linear: {
+          type: "http",
+          url: "https://mcp.linear.app/mcp",
+          headers: {
+            Authorization: "Bearer linear-token",
+          },
+        },
+      },
+    });
+
+    const result = await Effect.runPromise(
+      Effect.either(
+        runner.runTurn({
+          prompt: "Fix the auth bug",
+          workspacePath: "/tmp/symphony/ABC-123",
+          timeoutMs: 100,
+        }),
+      ),
+    );
+
+    expect(Either.isLeft(result)).toBe(true);
+    if (Either.isLeft(result)) {
+      expect(result.left).toBeInstanceOf(SpawnFailed);
+      expect(result.left.reason).toContain("exposed no tools");
+    }
+    expect(ran).toBe(false);
   });
 
   it("maps snake_case usage fields when SDK usage is serialized", async () => {

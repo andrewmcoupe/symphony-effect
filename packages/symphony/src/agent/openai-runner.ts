@@ -1,5 +1,4 @@
 import {
-  Agent,
   connectMcpServers as sdkConnectMcpServers,
   MCPServerSSE,
   MCPServerStdio,
@@ -8,9 +7,13 @@ import {
   type Agent as OpenAiAgent,
   type MCPServers,
   type MCPServer,
+  type MCPServersOptions,
   type MCPToolFilterCallable,
   type NonStreamRunOptions,
+  RunContext,
 } from "@openai/agents";
+import { localBindMountStrategy, mount, SandboxAgent } from "@openai/agents/sandbox";
+import { UnixLocalSandboxClient } from "@openai/agents/sandbox/local";
 import { Effect } from "effect";
 import {
   NonZeroExit,
@@ -42,6 +45,7 @@ export type OpenAiRun = (
 
 export type OpenAiConnectMcpServers = (
   servers: MCPServer[],
+  options?: MCPServersOptions,
 ) => Promise<Pick<MCPServers, "active" | "close">>;
 
 interface OpenAiAgentRunnerDependencies {
@@ -94,6 +98,13 @@ const matchesAnyName = (
   patterns === undefined ||
   names.some((name) => patterns.some((pattern) => wildcardToRegExp(pattern).test(name)));
 
+const matchesBlockedName = (
+  names: readonly string[],
+  patterns: readonly string[] | undefined,
+): boolean =>
+  patterns !== undefined &&
+  names.some((name) => patterns.some((pattern) => wildcardToRegExp(pattern).test(name)));
+
 const effectiveToolNames = (serverName: string, toolName: string): readonly string[] => [
   toolName,
   `mcp_${serverName}__${toolName}`,
@@ -130,8 +141,8 @@ const toolFilter = (
     const names = effectiveToolNames(serverName, tool.name);
     return (
       matchesAnyName(names, allowedTools) &&
-      !matchesAnyName(names, blockedTools) &&
-      !matchesAnyName([tool.name], blockedTools)
+      !matchesBlockedName(names, blockedTools) &&
+      !matchesBlockedName([tool.name], blockedTools)
     );
   };
 };
@@ -184,6 +195,11 @@ const makeMcpServers = (
   servers === undefined
     ? []
     : Object.entries(servers).map(([name, server]) => makeMcpServer(name, server, allowedTools));
+
+const visibleMcpToolsInstruction = (toolNames: readonly string[]): string =>
+  toolNames.length === 0
+    ? ""
+    : ` Available MCP tools: ${toolNames.map((name) => `\`${name}\``).join(", ")}. Use the Linear MCP tools for issue status, checklist, and comment updates before coding.`;
 
 const mapRunResult = (workspacePath: string, result: OpenAiRunResult): TurnResult => {
   if (result.interruptions !== undefined && result.interruptions.length > 0) {
@@ -256,6 +272,9 @@ const runCancellableOpenAi = ({
     const options = {
       maxTurns,
       signal: abortController.signal,
+      sandbox: {
+        client: new UnixLocalSandboxClient(),
+      },
       ...(params.resumeSessionId === undefined
         ? {}
         : { previousResponseId: params.resumeSessionId }),
@@ -264,17 +283,46 @@ const runCancellableOpenAi = ({
     const execute = async (): Promise<TurnResult> => {
       const configuredServers = [...makeMcpServers(mcpServers, allowedTools)];
       const connected =
-        configuredServers.length === 0 ? undefined : await connectMcpServers(configuredServers);
+        configuredServers.length === 0
+          ? undefined
+          : await connectMcpServers(configuredServers, { strict: true, dropFailed: false });
 
       try {
-        const agent = new Agent({
+        const agent = new SandboxAgent({
           name: "Symphony Agent",
           instructions:
-            "You are a non-interactive coding agent running inside Symphony. Complete the requested Turn and return the final result text.",
+            "You are a non-interactive coding agent running inside Symphony. Work in /workspace/repo, complete the requested Turn, and return the final result text.",
+          defaultManifest: {
+            root: "/workspace",
+            entries: {
+              repo: mount({
+                source: params.workspacePath,
+                readOnly: false,
+                mountStrategy: localBindMountStrategy(),
+              }),
+            },
+          },
           ...(model === undefined ? {} : { model }),
           mcpServers: connected?.active ?? [],
           mcpConfig: { includeServerInToolNames: true },
         });
+
+        if (configuredServers.length > 0) {
+          const toolNames = (await agent.getMcpTools(new RunContext())).map((tool) => tool.name);
+          if (toolNames.length === 0) {
+            throw new SpawnFailed({
+              workspacePath: params.workspacePath,
+              reason: "Configured OpenAI MCP servers connected but exposed no tools",
+            });
+          }
+
+          const instructions = `${agent.instructions ?? ""}${visibleMcpToolsInstruction(toolNames)}`;
+          return mapRunResult(
+            params.workspacePath,
+            await run(agent.clone({ instructions }), params.prompt, options),
+          );
+        }
+
         return mapRunResult(params.workspacePath, await run(agent, params.prompt, options));
       } finally {
         await connected?.close().catch(() => undefined);
