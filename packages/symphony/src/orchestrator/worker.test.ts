@@ -95,6 +95,7 @@ const runWithWorker = (mocks: WorkerMocks = {}) => {
   const prompts: string[] = [];
   const agentCalls: TurnParams[] = [];
   const workspaces: string[] = [];
+  const removed: string[] = [];
   const turns = [...(mocks.turnResults ?? [successTurn()])];
   const trackerStates = [...(mocks.trackerStates ?? ["Done"])];
 
@@ -109,7 +110,10 @@ const runWithWorker = (mocks: WorkerMocks = {}) => {
         createdNow: mocks.createdNow ?? true,
       });
     },
-    removeWorkspace: () => Effect.void,
+    removeWorkspace: (identifier) => {
+      removed.push(identifier);
+      return Effect.void;
+    },
   };
 
   const hookExecutor: HookExecutorService = {
@@ -163,7 +167,7 @@ const runWithWorker = (mocks: WorkerMocks = {}) => {
 
       const result = yield* worker.runWorker(issue, null);
       const snapshot = yield* stateRef.getSnapshot();
-      return { result, snapshot, agentCalls, hookCalls, prompts, workspaces };
+      return { result, snapshot, agentCalls, hookCalls, prompts, workspaces, removed };
     }).pipe(Effect.provide(OrchestratorStateRefLive)),
   );
 };
@@ -259,6 +263,30 @@ describe("Worker", () => {
     expectFailedWith(result.result, HookFailed);
     expect(result.result.turnCount).toBe(0);
     expect(result.hookCalls).toEqual(["after_create", "before_run"]);
+  });
+
+  it("removes the freshly created workspace when after_create fails", async () => {
+    const result = await runWithWorker({
+      hookErrors: { after_create: makeHookError("after-create") },
+    });
+
+    expectFailedWith(result.result, HookFailed);
+    if (result.result._tag === "Failed" && result.result.error instanceof HookFailed) {
+      expect(result.result.error.hookName).toBe("after_create");
+    }
+    // before_run must not run, and the half-created workspace must be cleaned up
+    // so the next attempt re-creates it and re-runs after_create (the clone).
+    expect(result.hookCalls).toEqual(["after_create"]);
+    expect(result.removed).toEqual(["ABC-1"]);
+  });
+
+  it("keeps the workspace when before_run fails (the clone is intact and reusable)", async () => {
+    const result = await runWithWorker({
+      hookErrors: { before_run: makeHookError("before-run") },
+    });
+
+    expectFailedWith(result.result, HookFailed);
+    expect(result.removed).toEqual([]);
   });
 
   it("returns Failed for unsuccessful agent turns", async () => {

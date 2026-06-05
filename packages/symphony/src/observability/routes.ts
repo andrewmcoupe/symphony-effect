@@ -70,7 +70,11 @@ const writeDomainEvent = (stream: SSEStreamingApi, event: DomainEvent): Effect.E
   Effect.promise(() =>
     stream.writeSSE({
       event: event._tag,
-      data: JSON.stringify({ identifier: event.identifier }),
+      data: JSON.stringify(
+        event._tag === "TokenTotalsChanged"
+          ? { tokenTotals: event.tokenTotals }
+          : { identifier: event.identifier },
+      ),
     }),
   );
 

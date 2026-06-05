@@ -142,6 +142,18 @@ describe("HttpServer", () => {
     );
     expect(eventText).not.toContain("issue-1");
 
+    await Effect.runPromise(
+      setup.state.incrementTokens({ inputTokens: 10, outputTokens: 5, runtimeSeconds: 7 }),
+    );
+    await readUntil(
+      reader,
+      (text) =>
+        text.includes("event: TokenTotalsChanged") &&
+        text.includes(
+          'data: {"tokenTotals":{"inputTokens":10,"outputTokens":5,"totalTokens":15,"runtimeSeconds":7}}',
+        ),
+    );
+
     await readUntil(reader, (text) => text.includes(": ping"));
     await reader.cancel();
     await waitFor(

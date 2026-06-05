@@ -46,7 +46,8 @@ See [ADR 0001](../../docs/adr/0001-sse-domain-event-pubsub.md) and the
 - `PubSub.publish` returns an `Effect<boolean>`; sliding never blocks, so it is
   safe to sequence after the mutation.
 - Capacity is a small constant (e.g. 64); document the choice inline.
-- Events are intentionally thin signals — no state payload (see ADR 0001).
+- Events are intentionally thin signals: issue events carry identifiers, and
+  token-total events carry aggregate totals for observability (see ADR 0001).
 
 ## Files to Create / Modify
 

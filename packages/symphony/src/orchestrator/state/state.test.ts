@@ -283,6 +283,30 @@ describe("OrchestratorStateRef", () => {
     expect(snapshot.lastPollAt).toBe(12345);
   });
 
+  it("publishes TokenTotalsChanged events for token increments", async () => {
+    const event = await runWithState(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const state = yield* OrchestratorStateRef;
+          const subscription = yield* state.subscribe();
+
+          yield* state.incrementTokens({ inputTokens: 10, outputTokens: 5, runtimeSeconds: 3 });
+          return yield* takeEvent(subscription);
+        }),
+      ),
+    );
+
+    expect(event).toEqual({
+      _tag: "TokenTotalsChanged",
+      tokenTotals: {
+        inputTokens: 10,
+        outputTokens: 5,
+        totalTokens: 15,
+        runtimeSeconds: 3,
+      },
+    });
+  });
+
   it("records shutdown requests", async () => {
     const result = await runWithState(
       Effect.gen(function* () {
@@ -413,7 +437,7 @@ describe("OrchestratorStateRef", () => {
     ]);
   });
 
-  it("does not publish events for silent mutations", async () => {
+  it("does not publish events for activity or poll mutations", async () => {
     const event = await runWithState(
       Effect.scoped(
         Effect.gen(function* () {
@@ -422,7 +446,6 @@ describe("OrchestratorStateRef", () => {
 
           yield* state.markRunning("issue-123", makeFiber(), "ABC-123");
           yield* takeEvent(subscription);
-          yield* state.incrementTokens({ inputTokens: 1 });
           yield* state.updateActivity("issue-123");
           yield* state.recordPoll(123);
 

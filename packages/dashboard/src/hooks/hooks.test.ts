@@ -271,10 +271,14 @@ describe("dashboard API hooks", () => {
         "IssueStateChanged",
         '{"identifier":"ABC-1"}',
       );
+      MockEventSource.instances[0]?.dispatchDomainEvent(
+        "TokenTotalsChanged",
+        '{"tokenTotals":{"inputTokens":10,"outputTokens":5,"totalTokens":15,"runtimeSeconds":3}}',
+      );
     });
 
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["orchestrator"] });
-    expect(invalidateQueries).toHaveBeenCalledTimes(2);
+    expect(invalidateQueries).toHaveBeenCalledTimes(3);
   });
 
   it("invalidates orchestrator queries when SSE connects or reconnects", async () => {

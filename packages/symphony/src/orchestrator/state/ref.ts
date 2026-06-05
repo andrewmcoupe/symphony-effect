@@ -161,7 +161,11 @@ export const makeOrchestratorStateRef = (
         next,
       ];
     }).pipe(Effect.flatMap((event) => publishEvent(events, event))),
-  incrementTokens: (usage) => Ref.update(ref, incrementTokensMutation(usage)),
+  incrementTokens: (usage) =>
+    Ref.modify(ref, (state) => {
+      const next = incrementTokensMutation(usage)(state);
+      return [{ _tag: "TokenTotalsChanged" as const, tokenTotals: next.tokenTotals }, next];
+    }).pipe(Effect.flatMap((event) => publishEvent(events, event))),
   recordRuntimeConfig: (config) => Ref.update(ref, recordRuntimeConfigMutation(config)),
   recordPoll: (lastPollAt) => Ref.update(ref, recordPollMutation(lastPollAt)),
   requestShutdown: () => Ref.update(ref, requestShutdownMutation),

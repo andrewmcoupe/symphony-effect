@@ -19,8 +19,10 @@ See [ADR 0001](../../docs/adr/0001-sse-domain-event-pubsub.md).
 - [x] On connect, the handler scopes one `PubSub.subscribe` to the orchestrator
       events PubSub; a forked fiber dequeues events and writes one SSE message
       per event:
-  - `event:` = the Domain Event `_tag` (`TurnRecorded` / `IssueStateChanged`)
-  - `data:`  = JSON `{ identifier }` (thin signal — no state payload)
+  - `event:` = the Domain Event `_tag` (`TurnRecorded` / `IssueStateChanged` /
+      `TokenTotalsChanged`)
+  - `data:`  = JSON `{ identifier }` for issue events or `{ tokenTotals }` for
+      token-total events
 - [x] Heartbeat: a comment line (`: ping`) written every ~20s to keep the
       connection alive and detect death.
 - [x] On client disconnect/abort, the subscription scope is released and the
