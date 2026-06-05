@@ -38,6 +38,34 @@ The text result recorded for a single Turn (`turnNumber`, `recordedAt`,
 `output`). The most recent one for a running Issue is its "latest agent
 output".
 
+## Provider
+
+The AI vendor whose agent SDK executes a Turn. Symphony supports **Anthropic**
+and **OpenAI**. A workflow selects one Provider; the orchestrator and its
+observable state are otherwise Provider-agnostic — nothing downstream of the
+agent runner knows which Provider ran a Turn.
+
+## Model
+
+The specific LLM, named within the selected Provider's namespace, that performs
+the work of a Turn (e.g. `claude-sonnet-4-6` for Anthropic, `gpt-5.1` for
+OpenAI). A workflow names exactly one Model; it is meaningful only in the context
+of its Provider.
+
+## Agent Backend
+
+A Provider-specific implementation of the agent runner. Each Backend drives its
+Provider's native agent SDK to execute a Turn and produces the same Agent Output
+and token usage, so the rest of the system depends on the Backend's result, not
+its Provider. Exactly one Backend is selected per workflow, chosen by Provider.
+
+## Continuation Handle
+
+An opaque, Provider-issued reference that carries an Issue's context from one Turn
+to the next (an Anthropic session, an OpenAI conversation). The orchestrator
+threads it across an Issue's Turns without interpreting it; the first Turn of an
+Issue has none.
+
 ## Domain Event
 
 A semantic notification that the orchestrator's observable state changed,
