@@ -130,9 +130,10 @@ hooks:
 # Agent Configuration
 # -----------------------------------------------------------------------------
 agent:
-  model: claude-sonnet-4-6
+  provider: openai
+  model: gpt-5.1
   max_concurrent_agents: 5                  # Max parallel agent sessions.
-  max_turns: 25                             # Max Claude Code turns per session.
+  max_turns: 25                             # Max agent SDK turns per session.
   stall_timeout_ms: 300000                  # Abort if the agent stalls for 5 minutes.
   max_retry_backoff_ms: 300000              # Cap retry backoff at 5 minutes.
   max_concurrent_agents_by_state:           # Optional per-state concurrency limits.
@@ -140,13 +141,18 @@ agent:
     In Progress: 5
   allowed_tools:                            # Auto-allow tracker tools for handoff.
     - mcp__linear__*
-  mcp_servers:                              # Passed to Claude Agent SDK as mcpServers.
+  mcp_servers:                              # Passed to the selected provider's agent SDK.
     linear:
       type: http
       url: https://mcp.linear.app/mcp
       headers:
         Authorization: "Bearer $LINEAR_API_KEY"
       alwaysLoad: true
+
+  # OpenAI provider variant:
+  # provider: openai
+  # model: gpt-5.1
+  # Requires OPENAI_API_KEY instead of ANTHROPIC_API_KEY.
 
 ---
 
