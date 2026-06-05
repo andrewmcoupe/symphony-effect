@@ -10,6 +10,8 @@ For solo development, local is the simplest deployment:
 
 ```sh
 export ANTHROPIC_API_KEY=...
+# Or, for workflows with `agent.provider: openai`:
+# export OPENAI_API_KEY=...
 export LINEAR_API_KEY=...
 export GITHUB_TOKEN=...
 export SYMPHONY_REPOSITORY_URL=git@github.com:owner/repo.git
@@ -57,7 +59,7 @@ an external store.
 
 Typical secrets:
 
-- `ANTHROPIC_API_KEY`
+- `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`, depending on `agent.provider`
 - `LINEAR_API_KEY`
 - `GITHUB_TOKEN`
 - `SYMPHONY_REPOSITORY_URL`
@@ -90,4 +92,3 @@ a CI runner with write access:
 - prefer repository-specific deploy keys/tokens,
 - keep workspace roots away from personal files,
 - do not expose the HTTP API publicly without auth.
-

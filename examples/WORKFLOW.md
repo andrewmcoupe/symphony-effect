@@ -108,16 +108,17 @@ hooks:
 # -----------------------------------------------------------------------------
 agent:
   max_concurrent_agents: 5                  # Max parallel agent sessions.
-  max_turns: 15                             # Max Claude Agent SDK turns per call.
-  model: claude-sonnet-4-6                  # Optional; omit to use the SDK default.
+  provider: anthropic                       # Optional: anthropic (default) or openai.
+  max_turns: 15                             # Max agent SDK turns per call.
+  model: claude-sonnet-4-6                  # Optional; interpreted by the selected provider.
   stall_timeout_ms: 300000                  # Abort if the agent stalls for 5 minutes.
   max_retry_backoff_ms: 300000              # Cap retry backoff at 5 minutes.
   max_concurrent_agents_by_state:           # Optional per-state concurrency limits.
     Todo: 3
     In Progress: 5
-  allowed_tools:                            # Optional auto-allowed Claude SDK tools.
+  allowed_tools:                            # Optional provider tool allow-list.
     - mcp__linear__*
-  mcp_servers:                              # Optional Claude Agent SDK MCP servers.
+  mcp_servers:                              # Optional provider MCP servers.
     linear:
       type: http
       url: https://mcp.linear.app/mcp
