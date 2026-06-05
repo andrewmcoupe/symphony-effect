@@ -109,6 +109,7 @@ export const makeWorkflowConfig = (
     agent: {
       max_concurrent_agents: 2,
       max_turns: 3,
+      provider: "anthropic",
       stall_timeout_ms: 300_000,
       max_retry_backoff_ms: 10_000,
       ...overrides.agent,
@@ -178,6 +179,7 @@ export const workflowMarkdown = (
     "agent:",
     `  max_concurrent_agents: ${config.agent.max_concurrent_agents}`,
     `  max_turns: ${config.agent.max_turns}`,
+    `  provider: ${config.agent.provider}`,
     `  stall_timeout_ms: ${config.agent.stall_timeout_ms}`,
     `  max_retry_backoff_ms: ${config.agent.max_retry_backoff_ms}`,
     perState,

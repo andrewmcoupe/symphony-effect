@@ -37,6 +37,7 @@ export const makeMainLive = ({
   );
   const hooks = HookExecutorLive.pipe(Layer.provideMerge(workspace));
   const agent = makeAgentRunnerLive({
+    provider: loaded.config.agent.provider,
     maxTurns: loaded.config.agent.max_turns,
     ...(loaded.config.agent.model === undefined ? {} : { model: loaded.config.agent.model }),
     ...(loaded.config.agent.mcp_servers === undefined

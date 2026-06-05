@@ -61,7 +61,15 @@ commit, and push repository changes.
 
 ## Agent MCP Configuration
 
-`agent.mcp_servers` is passed to the Claude Agent SDK as `mcpServers`.
+`agent.provider` selects the agent backend. Supported values are:
+
+- `anthropic` (default): runs through the Anthropic Claude Agent SDK.
+- `openai`: accepted by configuration, but the backend is not implemented yet
+  and fails fast if selected.
+
+`agent.model` is interpreted in the selected provider's model namespace.
+
+`agent.mcp_servers` is passed to the selected agent SDK as MCP server config.
 `agent.allowed_tools` is passed as `allowedTools`.
 
 This is how the workflow can make tracker tools, such as Linear MCP, available
@@ -75,4 +83,3 @@ Supported MCP server config shapes:
 
 The current workflow uses Linear's hosted HTTP MCP server and injects
 `LINEAR_API_KEY` through an Authorization header.
-

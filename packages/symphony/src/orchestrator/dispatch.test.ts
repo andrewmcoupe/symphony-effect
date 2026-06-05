@@ -23,6 +23,7 @@ const dispatchConfig: DispatchDeciderConfigValue = {
 const agentConfig: ConcurrencyControllerConfigValue = {
   max_concurrent_agents: 2,
   max_turns: 20,
+  provider: "anthropic",
   stall_timeout_ms: 300_000,
   max_retry_backoff_ms: 300_000,
 };

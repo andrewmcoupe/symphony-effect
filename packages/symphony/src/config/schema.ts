@@ -179,6 +179,9 @@ const McpServerConfig = Schema.Union(McpStdioServerConfig, McpHttpServerConfig, 
 const AgentConfig = Schema.Struct({
   max_concurrent_agents: Schema.optionalWith(PositiveInt, { default: () => 10 }),
   max_turns: Schema.optionalWith(PositiveInt, { default: () => 20 }),
+  provider: Schema.optionalWith(Schema.Literal("anthropic", "openai"), {
+    default: () => "anthropic" as const,
+  }),
   model: Schema.optional(Schema.String.pipe(Schema.nonEmptyString())),
   stall_timeout_ms: Schema.optionalWith(Schema.Number.pipe(Schema.int()), {
     default: () => 300_000,
@@ -205,6 +208,7 @@ export const WorkflowConfig = Schema.Struct({
     default: () => ({
       max_concurrent_agents: 10,
       max_turns: 20,
+      provider: "anthropic",
       stall_timeout_ms: 300_000,
       max_retry_backoff_ms: 300_000,
     }),

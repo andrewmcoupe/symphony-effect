@@ -12,6 +12,7 @@ import {
   OutputParseFailed,
   SpawnFailed,
   TimedOut,
+  UnsupportedProvider,
   type AgentError,
 } from "./errors.js";
 import type { TokenUsage, TurnParams, TurnResult } from "./types.js";
@@ -23,6 +24,7 @@ export interface AgentRunner {
 export const AgentRunner = Context.GenericTag<AgentRunner>("symphony/AgentRunner");
 
 export type ClaudeQuery = typeof sdkQuery;
+export type AgentProvider = "anthropic" | "openai";
 
 export type AgentMcpServerToolPolicy = {
   readonly name: string;
@@ -48,6 +50,7 @@ export type AgentMcpServerConfig =
     };
 
 export interface AgentRunnerConfig {
+  readonly provider: AgentProvider;
   readonly maxTurns: number;
   readonly model?: string;
   readonly mcpServers?: Readonly<Record<string, AgentMcpServerConfig>>;
@@ -55,6 +58,10 @@ export interface AgentRunnerConfig {
 }
 
 interface AgentRunnerDependencies extends AgentRunnerConfig {
+  readonly query?: ClaudeQuery;
+}
+
+interface AnthropicAgentRunnerDependencies extends Omit<AgentRunnerConfig, "provider"> {
   readonly query?: ClaudeQuery;
 }
 
@@ -249,8 +256,26 @@ export const makeAgentRunner = ({
   maxTurns,
   mcpServers,
   model,
+  provider,
   query = sdkQuery,
 }: AgentRunnerDependencies): AgentRunner => {
+  if (provider === "openai") return makeUnsupportedProviderAgentRunner(provider);
+  return makeAnthropicAgentRunner({
+    ...(allowedTools === undefined ? {} : { allowedTools }),
+    maxTurns,
+    ...(mcpServers === undefined ? {} : { mcpServers }),
+    ...(model === undefined ? {} : { model }),
+    query,
+  });
+};
+
+export const makeAnthropicAgentRunner = ({
+  allowedTools,
+  maxTurns,
+  mcpServers,
+  model,
+  query = sdkQuery,
+}: AnthropicAgentRunnerDependencies): AgentRunner => {
   const runTurn = (params: TurnParams): Effect.Effect<TurnResult, AgentError> =>
     runCancellableQuery({
       ...(allowedTools === undefined ? {} : { allowedTools }),
@@ -282,10 +307,17 @@ export const makeAgentRunner = ({
   return { runTurn };
 };
 
+const makeUnsupportedProviderAgentRunner = (provider: "openai"): AgentRunner => ({
+  runTurn: () => Effect.fail(new UnsupportedProvider({ provider })),
+});
+
 export const makeAgentRunnerLive = (config: AgentRunnerConfig): Layer.Layer<AgentRunner> =>
   Layer.succeed(AgentRunner, makeAgentRunner(config));
 
-export const AgentRunnerLive: Layer.Layer<AgentRunner> = makeAgentRunnerLive({ maxTurns: 20 });
+export const AgentRunnerLive: Layer.Layer<AgentRunner> = makeAgentRunnerLive({
+  provider: "anthropic",
+  maxTurns: 20,
+});
 
 export const NodeAgentRunnerLive: Layer.Layer<AgentRunner> = AgentRunnerLive;
 

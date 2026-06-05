@@ -5,7 +5,13 @@ import type {
 } from "@anthropic-ai/claude-agent-sdk";
 import { Effect, Either, Fiber } from "effect";
 import { describe, expect, it } from "vitest";
-import { NonZeroExit, OutputParseFailed, SpawnFailed, TimedOut } from "./errors.js";
+import {
+  NonZeroExit,
+  OutputParseFailed,
+  SpawnFailed,
+  TimedOut,
+  UnsupportedProvider,
+} from "./errors.js";
 import { type AgentRunnerConfig, type ClaudeQuery, makeAgentRunner } from "./runner.js";
 
 interface QueryCall {
@@ -60,6 +66,7 @@ const runTurn = (query: ClaudeQuery, config: Partial<AgentRunnerConfig> = {}) =>
   const runner = makeAgentRunner({
     query,
     maxTurns: config.maxTurns ?? 7,
+    provider: config.provider ?? "anthropic",
     model: config.model ?? "claude-sonnet-4-6",
     ...(config.mcpServers === undefined ? {} : { mcpServers: config.mcpServers }),
     ...(config.allowedTools === undefined ? {} : { allowedTools: config.allowedTools }),
@@ -180,7 +187,7 @@ describe("AgentRunner", () => {
       })() as ReturnType<ClaudeQuery>;
     }) as ClaudeQuery;
 
-    const runner = makeAgentRunner({ query, maxTurns: 1 });
+    const runner = makeAgentRunner({ query, maxTurns: 1, provider: "anthropic" });
     const result = await Effect.runPromise(
       Effect.either(
         runner.runTurn({
@@ -213,7 +220,7 @@ describe("AgentRunner", () => {
       })() as ReturnType<ClaudeQuery>;
     }) as ClaudeQuery;
 
-    const runner = makeAgentRunner({ query, maxTurns: 1 });
+    const runner = makeAgentRunner({ query, maxTurns: 1, provider: "anthropic" });
     const fiber = Effect.runFork(
       runner.runTurn({
         prompt: "hang",
@@ -226,5 +233,20 @@ describe("AgentRunner", () => {
     await Effect.runPromise(Fiber.interrupt(fiber));
 
     expect(aborted).toBe(true);
+  });
+
+  it("fails fast when the OpenAI backend is selected before it is implemented", async () => {
+    const calls: QueryCall[] = [];
+    const result = await runTurn(makeFakeQuery([initMessage(), resultMessage()], calls), {
+      provider: "openai",
+      model: "gpt-5.1",
+    });
+
+    expect(Either.isLeft(result)).toBe(true);
+    if (Either.isLeft(result)) {
+      expect(result.left).toBeInstanceOf(UnsupportedProvider);
+      expect(result.left.provider).toBe("openai");
+    }
+    expect(calls).toHaveLength(0);
   });
 });
