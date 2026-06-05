@@ -49,6 +49,8 @@ Current Domain Events:
 - **TurnRecorded** — a Turn completed and its Agent Output was recorded.
 - **IssueStateChanged** — an Issue's lifecycle state changed (claimed, started,
   retry-queued, retry-taken, released, or tracker-state updated).
+- **TokenTotalsChanged** — aggregate token/runtime totals changed after a Turn
+  reported usage.
 
-Token-total increments, activity touches, and poll timestamps are intentionally
-**not** Domain Events — they are noise for observers.
+Activity touches and poll timestamps are intentionally **not** Domain Events —
+they are noise for observers.

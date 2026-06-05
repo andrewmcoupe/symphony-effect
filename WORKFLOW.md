@@ -132,7 +132,7 @@ hooks:
 agent:
   model: claude-sonnet-4-6
   max_concurrent_agents: 5                  # Max parallel agent sessions.
-  max_turns: 15                             # Max Claude Code turns per session.
+  max_turns: 25                             # Max Claude Code turns per session.
   stall_timeout_ms: 300000                  # Abort if the agent stalls for 5 minutes.
   max_retry_backoff_ms: 300000              # Cap retry backoff at 5 minutes.
   max_concurrent_agents_by_state:           # Optional per-state concurrency limits.
@@ -213,24 +213,49 @@ matching the existing project patterns.
 
 ## Instructions
 
-1. Understand the issue description and acceptance criteria.
-2. Explore the repository before editing.
-3. Make the smallest coherent change that completes the issue.
-4. Add or update focused tests when behavior changes.
-5. Run formatting, linting, typechecking, and relevant tests.
-6. Summarize changed files, verification commands, and any residual risk.
+1. Update Linear before coding: follow the "Linear Issue Lifecycle" section below
+   to move the issue to `In Progress` and make sure its acceptance criteria are
+   recorded on the issue.
+2. Understand the issue description and acceptance criteria.
+3. Explore the repository before editing.
+4. Make the smallest coherent change that completes the issue.
+5. Add or update focused tests when behavior changes.
+6. Run formatting, linting, typechecking, and relevant tests.
+7. Keep the acceptance-criteria checklist on the issue up to date as you go.
+8. Summarize changed files, verification commands, and any residual risk.
 
-## Linear Handoff
+## Linear Issue Lifecycle
 
-When implementation and local verification are complete, use Linear tooling if
-it is available to move {{ issue.identifier }} to `In Review`. Add a Linear
-comment stating that implementation is complete and Symphony will open a pull
-request for branch `symphony/{{ issue.identifier }}` after this run.
+Keep Linear issue {{ issue.identifier }} an accurate, living record of this work.
+Use the Linear MCP tools for each step below. If Linear tooling is not available,
+do not spend turns trying to install or discover it — note that the Linear updates
+were skipped because no Linear tooling is available, then continue with the
+engineering work. Do not move the issue to `Done`; human review and merge own that
+transition.
 
-If Linear tooling is not available, do not spend extra turns trying to install
-or discover it. State that the Linear handoff could not be performed because no
-Linear tooling is available, then finish the run. Do not move the issue to
-`Done`; human review and merge should do that.
+**At the start of the run:**
+
+1. If {{ issue.identifier }} is not already `In Progress`, move it there.
+2. Ensure the issue description has an `## Acceptance Criteria` section containing a
+   markdown checklist (`- [ ]` items). If that section already exists — written by a
+   human or an earlier run — leave its wording alone. If it is missing, derive 2–6
+   concrete, verifiable criteria from the description and append the section to the
+   END of the existing description. Never replace or delete the human-written
+   description text.
+
+**While you work:**
+
+- As you satisfy each criterion, edit the description to tick that item
+  (`- [ ]` → `- [x]`). A human may tick items at the same time, so re-read the
+  current description immediately before each edit and change only the checkbox you
+  are completing, preserving every other line exactly.
+
+**When implementation and local verification are complete:**
+
+1. Tick every criterion you have met.
+2. Move {{ issue.identifier }} to `In Review`.
+3. Add a Linear comment stating implementation is complete and Symphony will open a
+   pull request for branch `symphony/{{ issue.identifier }}` after this run.
 
 ## Engineering Guidelines
 

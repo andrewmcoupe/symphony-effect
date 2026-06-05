@@ -34,8 +34,9 @@ Push updates over **Server-Sent Events**, structured as follows:
 
 1. **Emission** — add an Effect `PubSub<DomainEvent>` co-located with the state
    ref. The ref's mutation methods publish semantic Domain Events
-   (`TurnRecorded`, `IssueStateChanged`) as a side effect, so no call sites
-   change. `incrementTokens` / `updateActivity` / `recordPoll` publish nothing.
+   (`TurnRecorded`, `IssueStateChanged`, `TokenTotalsChanged`) as a side
+   effect, so no call sites change. `updateActivity` / `recordPoll` publish
+   nothing.
 
 2. **Back-pressure** — the PubSub uses the **sliding** strategy. A slow or
    wedged subscriber drops its oldest events; the publisher (orchestrator
@@ -46,8 +47,9 @@ Push updates over **Server-Sent Events**, structured as follows:
    `PubSub.subscribe`; a forked fiber dequeues to `streamSSE` with a ~20s
    heartbeat and is torn down on abort.
 
-4. **Events are thin signals** — `{ type, identifier }`, carrying no state. The
-   client (`EventSource` via a root `useOrchestratorEvents()` hook) reacts by
+4. **Events are thin signals** — issue events carry `{ identifier }`; token
+   events carry the new aggregate totals only for observability/debuggability.
+   The client (`EventSource` via a root `useOrchestratorEvents()` hook) reacts by
    invalidating the `["orchestrator"]` query-key prefix; TanStack Query refetches
    through the existing REST projection, which stays the single source of truth.
 
@@ -58,8 +60,8 @@ Push updates over **Server-Sent Events**, structured as follows:
 
 ## Consequences
 
-- Agent-output and state-transition latency drops from ~5s to near-zero, with
-  far less steady-state polling.
+- Agent-output, token-total, and state-transition latency drops from ~5s to
+  near-zero, with far less steady-state polling.
 - The orchestrator is insulated from dashboard health by the sliding PubSub.
 - Exactly one projection (server REST) — no client-side state shape to drift.
 - Per-turn cadence means the extra refetch per event is negligible at solo/local
@@ -68,7 +70,7 @@ Push updates over **Server-Sent Events**, structured as follows:
 ## Alternatives considered
 
 - **`SubscriptionRef.changes`** — near-mechanical `Ref` swap, but emits the
-  whole state on *every* mutation (incl. token/activity noise) and forces the
+  whole state on *every* mutation (incl. activity noise) and forces the
   route to diff whole snapshots to recover what happened. Lossy semantics,
   noisier. Rejected in favour of explicit Domain Events.
 - **Fat events + `setQueryData`** — lowest latency, but duplicates the server

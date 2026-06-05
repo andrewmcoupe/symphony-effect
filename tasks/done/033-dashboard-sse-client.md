@@ -17,7 +17,7 @@ See [ADR 0001](../../docs/adr/0001-sse-domain-event-pubsub.md).
 - [ ] `useOrchestratorEvents()` hook mounted once at the root (e.g. in
       `__root.tsx`) that:
   - Opens a native `EventSource` to `${VITE_SYMPHONY_API_BASE_URL}/api/v1/events`.
-  - On any event (`TurnRecorded` / `IssueStateChanged`), calls
+  - On any event (`TurnRecorded` / `IssueStateChanged` / `TokenTotalsChanged`), calls
     `queryClient.invalidateQueries({ queryKey: ["orchestrator"] })` (coarse
     prefix invalidation).
   - On `open` (initial connect **and** reconnect), invalidates the

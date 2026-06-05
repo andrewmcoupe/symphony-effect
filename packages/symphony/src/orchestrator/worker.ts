@@ -278,6 +278,21 @@ export const makeWorker = ({
                     cause,
                   }),
               ),
+              // A failed after_create leaves a half-created workspace. Remove it so
+              // the next attempt re-creates the directory and re-runs after_create
+              // (e.g. the clone), instead of skipping it forever and failing in
+              // before_run. Cleanup errors are logged, never masking the original.
+              Effect.tapError(() =>
+                workspaceManager
+                  .removeWorkspace(issue.identifier)
+                  .pipe(
+                    Effect.catchAll((removalError) =>
+                      Effect.logWarning(
+                        `Failed to clean up workspace for ${issue.identifier} after after_create failure: ${removalError.message}`,
+                      ),
+                    ),
+                  ),
+              ),
             );
         }
 

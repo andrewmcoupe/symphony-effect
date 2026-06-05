@@ -381,15 +381,18 @@ and the [CONTEXT glossary](CONTEXT.md).
   - `TurnRecorded` — a Turn completed and its agent output was recorded.
   - `IssueStateChanged` — an Issue's lifecycle state changed (claimed, started,
     retry-queued, retry-taken, released, tracker-state updated).
-  - Token-total increments, activity touches, and poll timestamps are
-    intentionally **not** events (noise for observers).
+  - `TokenTotalsChanged` — aggregate token/runtime totals changed after a Turn
+    reported usage.
+  - Activity touches and poll timestamps are intentionally **not** events (noise
+    for observers).
 - **Transport:** a single global `GET /api/v1/events` SSE endpoint (gated on
   `--port`). Each connection scopes one `PubSub.subscribe`; a forked fiber pumps
   events to `streamSSE` with a ~20s heartbeat, torn down on disconnect.
-- **Events are thin signals** (`{ type, identifier }`, no state payload). The
-  client invalidates the TanStack Query cache, which refetches through the
-  existing REST projection — keeping one source of truth. This satisfies the
-  TanStack Query non-negotiable: SSE only invalidates, never writes the cache.
+- **Events are thin signals**. Issue events carry `{ identifier }`; token events
+  carry aggregate totals for observability. The client invalidates the TanStack
+  Query cache, which refetches through the existing REST projection — keeping one
+  source of truth. This satisfies the TanStack Query non-negotiable: SSE only
+  invalidates, never writes the cache.
 
 ### 7. Git Provider (Pull Requests)
 

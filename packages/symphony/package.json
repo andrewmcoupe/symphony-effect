@@ -11,6 +11,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts ../../WORKFLOW.md --port 3000",
     "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
@@ -32,6 +33,7 @@
   "devDependencies": {
     "@effect/vitest": "^0.27.0",
     "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
     "typescript": "^5.9.0",
     "vitest": "^3.2.0"
   }

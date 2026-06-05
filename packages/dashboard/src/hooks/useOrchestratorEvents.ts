@@ -4,7 +4,7 @@ import { useEffect } from "react";
 const orchestratorEventsUrl = (): string =>
   `${import.meta.env.VITE_SYMPHONY_API_BASE_URL ?? ""}/api/v1/events`;
 
-const domainEventTypes = ["TurnRecorded", "IssueStateChanged"] as const;
+const domainEventTypes = ["TurnRecorded", "IssueStateChanged", "TokenTotalsChanged"] as const;
 
 export const useOrchestratorEvents = () => {
   const queryClient = useQueryClient();
