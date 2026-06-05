@@ -1,11 +1,10 @@
+export { AgentError, NonZeroExit, OutputParseFailed, SpawnFailed, TimedOut } from "./errors.js";
 export {
-  AgentError,
-  NonZeroExit,
-  OutputParseFailed,
-  SpawnFailed,
-  TimedOut,
-  UnsupportedProvider,
-} from "./errors.js";
+  makeOpenAiAgentRunner,
+  type OpenAiConnectMcpServers,
+  type OpenAiRun,
+  type OpenAiRunResult,
+} from "./openai-runner.js";
 export {
   AgentRunner,
   AgentRunnerLive,

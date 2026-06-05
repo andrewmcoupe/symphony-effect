@@ -12,9 +12,9 @@ import {
   OutputParseFailed,
   SpawnFailed,
   TimedOut,
-  UnsupportedProvider,
   type AgentError,
 } from "./errors.js";
+import { makeOpenAiAgentRunner, type OpenAiRun } from "./openai-runner.js";
 import type { TokenUsage, TurnParams, TurnResult } from "./types.js";
 
 export interface AgentRunner {
@@ -59,6 +59,7 @@ export interface AgentRunnerConfig {
 
 interface AgentRunnerDependencies extends AgentRunnerConfig {
   readonly query?: ClaudeQuery;
+  readonly openAiRun?: OpenAiRun;
 }
 
 interface AnthropicAgentRunnerDependencies extends Omit<AgentRunnerConfig, "provider"> {
@@ -256,10 +257,20 @@ export const makeAgentRunner = ({
   maxTurns,
   mcpServers,
   model,
+  openAiRun,
   provider,
   query = sdkQuery,
 }: AgentRunnerDependencies): AgentRunner => {
-  if (provider === "openai") return makeUnsupportedProviderAgentRunner(provider);
+  if (provider === "openai") {
+    return makeOpenAiAgentRunner({
+      ...(allowedTools === undefined ? {} : { allowedTools }),
+      maxTurns,
+      ...(mcpServers === undefined ? {} : { mcpServers }),
+      ...(model === undefined ? {} : { model }),
+      ...(openAiRun === undefined ? {} : { run: openAiRun }),
+    });
+  }
+
   return makeAnthropicAgentRunner({
     ...(allowedTools === undefined ? {} : { allowedTools }),
     maxTurns,
@@ -306,10 +317,6 @@ export const makeAnthropicAgentRunner = ({
 
   return { runTurn };
 };
-
-const makeUnsupportedProviderAgentRunner = (provider: "openai"): AgentRunner => ({
-  runTurn: () => Effect.fail(new UnsupportedProvider({ provider })),
-});
 
 export const makeAgentRunnerLive = (config: AgentRunnerConfig): Layer.Layer<AgentRunner> =>
   Layer.succeed(AgentRunner, makeAgentRunner(config));

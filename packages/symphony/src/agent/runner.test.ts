@@ -5,13 +5,7 @@ import type {
 } from "@anthropic-ai/claude-agent-sdk";
 import { Effect, Either, Fiber } from "effect";
 import { describe, expect, it } from "vitest";
-import {
-  NonZeroExit,
-  OutputParseFailed,
-  SpawnFailed,
-  TimedOut,
-  UnsupportedProvider,
-} from "./errors.js";
+import { NonZeroExit, OutputParseFailed, SpawnFailed, TimedOut } from "./errors.js";
 import { type AgentRunnerConfig, type ClaudeQuery, makeAgentRunner } from "./runner.js";
 
 interface QueryCall {
@@ -235,18 +229,32 @@ describe("AgentRunner", () => {
     expect(aborted).toBe(true);
   });
 
-  it("fails fast when the OpenAI backend is selected before it is implemented", async () => {
+  it("selects the OpenAI backend without invoking the Claude query seam", async () => {
     const calls: QueryCall[] = [];
-    const result = await runTurn(makeFakeQuery([initMessage(), resultMessage()], calls), {
+    const openAiCalls: string[] = [];
+    const runner = makeAgentRunner({
+      query: makeFakeQuery([initMessage(), resultMessage()], calls),
+      openAiRun: async (_agent, input) => {
+        openAiCalls.push(input);
+        return { finalOutput: "openai done", lastResponseId: "resp-1" };
+      },
+      maxTurns: 7,
       provider: "openai",
       model: "gpt-5.1",
     });
+    const result = await Effect.runPromise(
+      Effect.either(
+        runner.runTurn({
+          prompt: "Fix the auth bug",
+          workspacePath: "/tmp/symphony/ABC-123",
+          timeoutMs: 100,
+        }),
+      ),
+    );
 
-    expect(Either.isLeft(result)).toBe(true);
-    if (Either.isLeft(result)) {
-      expect(result.left).toBeInstanceOf(UnsupportedProvider);
-      expect(result.left.provider).toBe("openai");
-    }
+    expect(Either.isRight(result)).toBe(true);
+    if (Either.isRight(result)) expect(result.right.output).toBe("openai done");
     expect(calls).toHaveLength(0);
+    expect(openAiCalls).toEqual(["Fix the auth bug"]);
   });
 });

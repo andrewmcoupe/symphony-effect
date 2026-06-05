@@ -39,25 +39,11 @@ export class NonZeroExit extends Data.TaggedError("AgentError.NonZeroExit")<{
   }
 }
 
-export class UnsupportedProvider extends Data.TaggedError("AgentError.UnsupportedProvider")<{
-  readonly provider: "openai";
-}> {
-  override get message(): string {
-    return `${this.provider} agent backend is not yet implemented`;
-  }
-}
-
-export type AgentError =
-  | SpawnFailed
-  | TimedOut
-  | OutputParseFailed
-  | NonZeroExit
-  | UnsupportedProvider;
+export type AgentError = SpawnFailed | TimedOut | OutputParseFailed | NonZeroExit;
 
 export const AgentError = {
   SpawnFailed,
   TimedOut,
   OutputParseFailed,
   NonZeroExit,
-  UnsupportedProvider,
 } as const;
