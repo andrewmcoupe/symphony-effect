@@ -131,7 +131,7 @@ hooks:
 # -----------------------------------------------------------------------------
 agent:
   provider: openai
-  model: gpt-5.1
+  model: gpt-5.4
   max_concurrent_agents: 5                  # Max parallel agent sessions.
   max_turns: 25                             # Max agent SDK turns per session.
   stall_timeout_ms: 300000                  # Abort if the agent stalls for 5 minutes.
@@ -262,6 +262,44 @@ transition.
 2. Move {{ issue.identifier }} to `In Review`.
 3. Add a Linear comment stating implementation is complete and Symphony will open a
    pull request for branch `symphony/{{ issue.identifier }}` after this run.
+
+## Filing Suggestions
+
+While working {{ issue.identifier }} you may notice something that is **out of
+scope for this issue** but still worth a human's attention — for example, code
+that contradicts a documented workspace convention (`CLAUDE.md`, `CONTEXT.md`, an
+ADR), a latent bug or correctness hazard outside this issue, or missing tests or
+error handling on a code path you touched. Do **not** fix it here — that would
+break scope. Instead, record it as a backlog suggestion using the Linear MCP
+tools.
+
+This is a best-effort side-task, never a blocker. If Linear tooling is
+unavailable or any step below fails, note it in your summary and move on — the
+success of {{ issue.identifier }} never depends on filing a suggestion.
+
+Apply a high bar: file a suggestion only if you would genuinely flag it to a
+colleague, and only when you can point to a concrete file and line. Do **not**
+file subjective style preferences or speculative "would be nice" refactors. This
+is a ceiling, not a quota — most runs file nothing.
+
+When you do find something that clears the bar:
+
+1. **Check for duplicates first.** Search existing issues — especially open ones
+   labelled `agent created` — for the same problem. If a match already exists,
+   skip filing and move on.
+2. **Create the issue** in the same project as {{ issue.identifier }}, in the
+   `Backlog` state, with the `agent created` label. Write a concise title stating
+   the problem itself (not "while working {{ issue.identifier }} I noticed…").
+   In the description, state what you observed, the specific file(s) and line(s),
+   and which documented convention it violates if applicable. End the description
+   with a provenance line: "Spotted by Symphony while working
+   {{ issue.identifier }}."
+3. **Comment on {{ issue.identifier }}** noting the identifier of the suggestion
+   you filed and a one-line summary of what it covers.
+
+Keep the volume low: if you find yourself filing more than two or three
+suggestions in one run, you are losing focus on the actual issue — record the
+rest in your final summary instead of filing them.
 
 ## Engineering Guidelines
 

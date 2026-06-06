@@ -9,6 +9,14 @@ what is written here.
 A unit of work the orchestrator can pick up and hand to an agent. Identified
 internally by an `issueId` and externally by a human-facing `identifier`.
 
+## Filed Suggestion
+
+An Issue created by an agent during a Turn to record an out-of-scope observation
+it made while working a *different* Issue. It is inert on creation — parked for
+human triage, never auto-picked-up by the orchestrator — and carries provenance
+back to the Turn's originating Issue. Distinct from a human-authored Issue only
+by origin and intent.
+
 ## Issue State
 
 The orchestrator's view of where an Issue is in its lifecycle. Internally
