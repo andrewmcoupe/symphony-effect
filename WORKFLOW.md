@@ -10,7 +10,7 @@ tracker:
   kind: linear                              # Only "linear" is supported currently.
   endpoint: https://api.linear.app/graphql  # Optional. This is the default.
   api_key: $LINEAR_API_KEY                  # Resolved from the environment.
-  project_slug: orca-f5530c05d23d               # Linear project slugId to poll.
+  project_slug: countries-page-0314dbcff3b2               # Linear project slugId to poll.
   active_states:                            # Issues in these states can be run.
     - Todo
     - In Progress
